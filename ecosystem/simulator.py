@@ -8,7 +8,7 @@ Prey traits
   - reproduce when on same square as other prey
   - die when on same square as stronger predator
 - optimize
-  - min calorie storage
+  - daily calorie usage
   - strength (compared to prey)
   - offspring capacity
 
@@ -47,8 +47,8 @@ class Ecosystem:
         self.grid[i, j] = {
           "WEAK_PREDATORS": [],
           "STRONG_PREDATOR": None,
-          "PREY": [],
-          "FOOD": False
+          "PREY": [], # TODO: turn to deque
+          "FOOD": 0
         }
 
     self.predators = []
@@ -80,6 +80,16 @@ class Ecosystem:
       self.grid[p0, p1]["PREY"].append(prey)
 
     # Initialize food
-    start_food_count = int(grid_shape[0] * grid_shape[1] * 0.2)
-    
+    start_food_source_count = int(grid_shape[0] * grid_shape[1] * 0.2)
+    for _ in start_food_source_count:
+      p0, p1 = random.randint(0, grid_shape[0] - 1), random.randint(1, grid_shape[1] - 1)
+      self.grid[p0, p1] += 1
+
+    # Run simulation
+    for _ in range(5):
+      # Evaluate current state
+      for p0 in range(grid_shape[0]):
+        for p1 in range(grid_shape[1]):
+          if self.grid[p0, p1]["STRONG_PREDATOR"]:
+            if 
 
