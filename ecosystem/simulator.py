@@ -18,27 +18,41 @@ Predatory traits
 """
 import numpy as np
 import random
-from collections import deque
 from copy import deepcopy
 
 
 class Ecosystem:
   class Prey:
     alive_count = 0
-    def __init__(self):
-      self.strength = random.randint(0, 10)
-      self.stored_calories = 10
-      self.calorie_usage = random.randint(0, 5)
-      self.offspring_capacity = random.randint(0, 5)
-      self.alive_count += 1
+    def __init__(self, _strength=random.randint(0, 10), _calorie_usage=random.randint(1, 2), _offspring_capacity=random.randint(0, 5)):
+      self.inherited = {
+        "STRENGTH": _strength,
+        "CALORIE_USAGE": _calorie_usage,
+        "OFFSPRING_CAPACITY": _offspring_capacity
+      }
+      self.stored_calories = 5
+      Ecosystem.Prey.alive_count += 1
 
     def starved(self, eat=0) -> bool:
-      self.stored_calories += (eat - self.calorie_usage)
+      self.stored_calories += (eat - self.inherited["CALORIE_USAGE"])
       if self.stored_calories <= 0:
         return True
       else:
-        self.alive_count -= 1
+        Ecosystem.Prey.alive_count -= 1
         return False
+      
+    def reproduce(self, mate):
+      offspring = []
+      for _ in range(min(self.inherited["OFFSPRING_CAPACITY"], mate.inherited["OFFSPRING_CAPACITY"])):
+        new_traits = {}
+        for trait, value in self.inherited.items():
+          if random.randint(0, 1):
+            new_traits[trait] = value
+          else:
+            new_traits[trait] = mate.inherited[trait]
+        offspring.append(self.__init__(new_traits["STRENGTH"], new_traits["CALORIE_USAGE"], new_traits["OFFSPRING_CAPACITY"]))
+      return offspring
+      
 
   class Predator:
     def __init__(self):
@@ -49,7 +63,7 @@ class Ecosystem:
     self.grid = np.full((_dims[0], _dims[1]), {
           "WEAK_PREDATORS": [],
           "STRONG_PREDATOR": None,
-          "PREY": deque(),
+          "PREY": [],
           "FOOD": 0
         })
 
@@ -100,6 +114,7 @@ class Ecosystem:
     for _ in range(start_food_source_count):
       p0, p1 = random.randint(0, grid_shape[0] - 1), random.randint(1, grid_shape[1] - 1)
       self.grid[p0, p1]["FOOD"] += 1
+    
     reset_grid = deepcopy(self.grid)
 
     print("Initializing predators")
@@ -118,7 +133,7 @@ class Ecosystem:
     for prey in self.prey:
       p0, p1 = random.randint(0, grid_shape[0] - 1), random.randint(1, grid_shape[1] - 1)
       self.grid[p0, p1]["PREY"].append(prey)
-    print("Initialized prey")
+    print(f"Initialized {Ecosystem.Prey.alive_count} prey")
 
     print("Starting simulation")
     for day in range(5):
@@ -127,11 +142,12 @@ class Ecosystem:
       for p0 in range(grid_shape[0]):
         for p1 in range(grid_shape[1]):
           # Process surviving prey
+          surviving_prey = []
           for _ in range(len(self.grid[p0, p1]["PREY"])):
             current_prey = self.grid[p0, p1]["PREY"].pop()
             survived = True
 
-            if self.grid[p0, p1]["STRONG_PREDATOR"] and current_prey.strength < self.grid[p0, p1]["STRONG_PREDATOR"].strength:
+            if self.grid[p0, p1]["STRONG_PREDATOR"] and current_prey.inherited["STRENGTH"] < self.grid[p0, p1]["STRONG_PREDATOR"].strength:
               survived = False
 
             food_amount = self.grid[p0, p1]["FOOD"]
@@ -141,8 +157,22 @@ class Ecosystem:
             if survived:
               new_p0, new_p1 = self.new_position(p0, p1)
               next_grid[new_p0, new_p1]["PREY"].append(current_prey)
+              surviving_prey.append(current_prey)
+          
+          # Process reproduction
+          if surviving_prey:
+            random.shuffle(surviving_prey)
+            correction = 0
+            if len(surviving_prey) % 2 == 1:
+              correction = 1
+            for left_idx in range(0, len(surviving_prey) - correction, 2):
+              left_prey, right_prey = surviving_prey[left_idx], surviving_prey[left_idx + 1]
+              new_prey = left_prey.reproduce(right_prey)
+              for prey in new_prey:
+                new_p0, new_p1 = self.new_position(p0, p1)
+                next_grid[new_p0, new_p1]["PREY"].append(new_prey)
 
-          # Process mvoing predators
+          # Process moving predators
           if self.grid[p0, p1]["STRONG_PREDATOR"]:
             self.grid[p0, p1]["WEAK_PREDATORS"].append(self.grid[p0, p1]["STRONG_PREDATOR"])
           self.grid[p0, p1]["STRONG_PREDATOR"] = None
@@ -161,8 +191,9 @@ class Ecosystem:
       print(f"Alive prey: {Ecosystem.Prey.alive_count}")
 
 
+
 if __name__ == "__main__":
-  e = Ecosystem((3, 3))
+  e = Ecosystem((10, 10))
   e.run_simulation()
           
 
