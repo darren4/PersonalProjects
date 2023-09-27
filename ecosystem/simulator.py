@@ -25,7 +25,7 @@ random.seed(728)
 class Ecosystem:
   class Prey:
     alive_count = 0
-    def __init__(self, _strength=random.randint(0, 10), _calorie_usage=random.randint(1, 2), _offspring_capacity=random.randint(0, 5)):
+    def __init__(self, _strength=random.randint(5, 10), _calorie_usage=random.randint(0, 0), _offspring_capacity=random.randint(1, 5)):
       self.inherited = {
         "STRENGTH": _strength,
         "CALORIE_USAGE": _calorie_usage,
@@ -139,7 +139,7 @@ class Ecosystem:
     print(f"Initialized {Ecosystem.Prey.alive_count} prey")
 
     print("Starting simulation")
-    for day in range(5):
+    for day in range(10):
       print(f"--- Day {day} ---")
       next_grid = deepcopy(reset_grid)
       for p0 in range(self.grid_shape[0]):
@@ -184,7 +184,7 @@ class Ecosystem:
               new_prey = left_prey.reproduce(right_prey)
               for prey in new_prey:
                 new_p0, new_p1 = self.new_position(p0, p1)
-                next_grid[new_p0][new_p1]["PREY"].append(new_prey)
+                next_grid[new_p0][new_p1]["PREY"].append(prey)
 
           # Process moving predators
           if self.grid[p0][p1]["STRONG_PREDATOR"]:
@@ -206,6 +206,15 @@ class Ecosystem:
       print(f"Alive prey: {Ecosystem.Prey.alive_count}")
       if Ecosystem.Prey.alive_count == 0:
         return
+
+      # TODO display grid each day
+      prey_counts = np.zeros((self.grid_shape))
+      for p0 in range(self.grid_shape[0]):
+        for p1 in range(self.grid_shape[1]):
+          prey_counts[p0, p1] = len(self.grid[p0][p1]["PREY"])
+      print(prey_counts)
+
+      # TODO write output to file
 
 
 if __name__ == "__main__":
