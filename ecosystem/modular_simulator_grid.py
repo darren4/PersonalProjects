@@ -1,22 +1,22 @@
 import random
 from threading import Lock, Thread, Condition
 
-random.seed(728)
-
 
 class Planet:
     grid = None
     grid_shape = None  # TODO: make reader lock
 
-    day = -1
-    day_lock = Lock()
-    day_cv = Condition(day_lock)
-
-    DAY_COUNT = None
-
     ready = 0
     ready_lock = Lock()
     ready_cv = Condition(ready_lock)
+    worker_count = None
+
+    # PROCESS, TRANSITION
+    worker_state = "PROCESS"
+    worker_state_lock = Lock()
+    worker_state_cv = Condition(worker_state_lock)
+
+    DAY_COUNT = None
 
 
 class Organism:
@@ -36,7 +36,7 @@ class Prey(Organism):
     def __init__(
         self,
         _strength: int = random.randint(5, 10),
-        _calorie_usage: int = random.randint(0, 0),
+        _calorie_usage: int = random.randint(0, 3),
         _offspring_capacity: int = random.randint(1, 5),
     ):
         self.inherited = {
@@ -112,16 +112,26 @@ def new_position(ri, ci, grid_shape):
     return valid_positions[random_position]
 
 
-def process_position(ri, ci):
-    current_day = 0
-    while True:
-        if current_day == Planet.DAY_COUNT:
-            break
+def apply_position(target, source):
+    target["PREDATORS"].clear()
+    target["PREY"].clear()
+    for predator in source["PREDATORS"]:
+        target["PREDATORS"].append(predator)
+    for prey in source["PREY"]:
+        target["PREY"].append(prey)
 
-        with Planet.day_lock:
-            while Planet.day < current_day:
-                Planet.day_cv.wait()
-        current_day += 1
+    target["PREDATOR_TOP_STRENGTH"] = source["PREDATOR_TOP_STRENGTH"]
+
+
+def process_position(ri, ci):
+    for day_num in range(Planet.DAY_COUNT):
+        with Organism.alive_count_lock:
+            if not Organism.alive_count:
+                return
+
+        with Planet.worker_state_lock:
+            while Planet.worker_state != "PROCESS":
+                Planet.worker_state_cv.wait()
 
         with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
             surviving_prey = []
@@ -167,18 +177,38 @@ def process_position(ri, ci):
 
         with Planet.ready_lock:
             Planet.ready += 1
-            Planet.ready_cv.notify_all()
+            if Planet.ready == Planet.worker_count:
+                print(f"--- Post Day {day_num} ---")
+                with Organism.alive_count_lock:
+                    print(f"Organism alive count: {Organism.alive_count}")
+                Planet.ready = 0
+                with Planet.worker_state_lock:
+                    Planet.worker_state = "TRANSITION"
+                    Planet.worker_state_cv.notify_all()
 
+        with Planet.worker_state_lock:
+            while Planet.worker_state != "TRANSITION":
+                Planet.worker_state_cv.wait()
 
-def apply_position(target, source):
-    target["PREDATORS"].clear()
-    target["PREY"].clear()
-    for predator in source["PREDATORS"]:
-        target["PREDATORS"].append(predator)
-    for prey in source["PREY"]:
-        target["PREY"].append(prey)
+        with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
+            with Planet.grid[ri][ci][1]["POSITION_LOCK"]:
+                apply_position(Planet.grid[ri][ci][0], Planet.grid[ri][ci][1])
+                apply_position(
+                    {
+                        "PREDATORS": [],
+                        "PREDATOR_TOP_STRENGTH": 0,
+                        "PREY": [],
+                    },
+                    Planet.grid[ri][ci][1],
+                )
 
-    target["PREDATOR_TOP_STRENGTH"] = source["PREDATOR_TOP_STRENGTH"]
+        with Planet.ready_lock:
+            Planet.ready += 1
+            if Planet.ready == Planet.worker_count:
+                Planet.ready = 0
+                with Planet.worker_state_lock:
+                    Planet.worker_state = "PROCESS"
+                    Planet.worker_state_cv.notify_all()
 
 
 def run_simulation():
@@ -188,13 +218,14 @@ def run_simulation():
     start_prey_count = 10  # can replace with prey types
     start_food_source_count = 5  # can replace with food amounts/positions
     Planet.DAY_COUNT = 3
+    prey_calorie_usage = 0  # prey never starve
 
     Planet.grid = []
     for ri in range(Planet.grid_shape[0]):
         Planet.grid.append([])
         for ci in range(Planet.grid_shape[1]):
             Planet.grid[-1].append(
-                [
+                (
                     {
                         "PREDATORS": [],
                         "PREDATOR_TOP_STRENGTH": 0,
@@ -209,7 +240,7 @@ def run_simulation():
                         "FOOD": 0,
                         "POSITION_LOCK": Lock(),
                     },
-                ]
+                )
             )
 
     for _ in range(start_food_source_count):
@@ -236,47 +267,15 @@ def run_simulation():
             0, Planet.grid_shape[1] - 1
         )
         with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
-            prey = Prey()
+            prey = Prey(_calorie_usage=prey_calorie_usage)
             Planet.grid[ri][ci][0]["PREY"].append(prey)
 
+    Planet.worker_count = Planet.grid_shape[0] * Planet.grid_shape[1]
+
+    # START THREADS
     for ri in range(Planet.grid_shape[0]):
         for ci in range(Planet.grid_shape[1]):
             Thread(target=process_position, args=[ri, ci]).start()
-
-    worker_count = Planet.grid_shape[0] * Planet.grid_shape[1]
-
-    for i in range(Planet.DAY_COUNT):
-        with Planet.ready_lock:
-            Planet.ready = 0
-
-        with Planet.day_lock:
-            Planet.day = i
-            print(f"--- Day {Planet.day} ---")
-            Planet.day_cv.notify_all()
-
-        with Planet.ready_lock:
-            while Planet.ready < worker_count:
-                Planet.ready_cv.wait()
-
-        with Organism.alive_count_lock:
-            if Organism.alive_count == 0:
-                break
-            else:
-                print(Organism.alive_count)
-
-        # TODO: make workers do this (put at end of function)
-        for ri in range(Planet.grid_shape[0]):
-            for ci in range(Planet.grid_shape[1]):
-                with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
-                    with Planet.grid[ri][ci][1]["POSITION_LOCK"]:
-                        apply_position(Planet.grid[ri][ci][0], Planet.grid[ri][ci][1])
-                        apply_position(
-                            {
-                                "PREDATORS": [],
-                                "PREDATOR_TOP_STRENGTH": 0,
-                                "PREY": [],
-                            }, Planet.grid[ri][ci][1]
-                        )
 
 
 if __name__ == "__main__":
