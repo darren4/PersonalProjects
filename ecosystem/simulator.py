@@ -295,12 +295,12 @@ def process_position(ri, ci, day_count):
             with Planet.grid[ri][ci][1]["POSITION_LOCK"]:
                 apply_position(Planet.grid[ri][ci][0], Planet.grid[ri][ci][1])
                 apply_position(
+                    Planet.grid[ri][ci][1],
                     {
                         "PREDATORS": [],
                         "PREDATOR_TOP_STRENGTH": 0,
                         "PREY": [],
-                    },
-                    Planet.grid[ri][ci][1],
+                    }
                 )
 
         with Planet.ready_lock:
@@ -318,7 +318,7 @@ def run_simulation():
     start_predator_count = 1  # can replace with predator types
     start_prey_count = 10  # can replace with prey types
     start_food_source_count = 5  # can replace with food amounts/positions
-    day_count = 5
+    day_count = 10
 
     Planet.grid = []
     for ri in range(Planet.grid_shape[0]):
