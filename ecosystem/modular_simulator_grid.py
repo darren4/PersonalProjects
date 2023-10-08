@@ -11,7 +11,7 @@ class Planet:
     ready_cv = Condition(ready_lock)
     worker_count = None
 
-    # PROCESS, TRANSITION
+    # PROCESS, TRANSITION, DONE
     worker_state = "PROCESS"
     worker_state_lock = Lock()
     worker_state_cv = Condition(worker_state_lock)
@@ -23,6 +23,26 @@ class Organism:
     alive_count = 0
     alive_count_lock = Lock()
 
+    @staticmethod
+    def display_status():
+        with Organism.alive_count_lock:
+            alive_count = Organism.alive_count
+            print(f"Organism count: {alive_count}")
+        Prey.display_status()
+        Prey.reset_round_status()
+        return alive_count
+
+
+    @staticmethod
+    def born():
+        with Organism.alive_count_lock:
+            Organism.alive_count += 1
+
+    @staticmethod
+    def died():
+        with Organism.alive_count_lock:
+            Organism.alive_count -= 1
+
 
 class Predator(Organism):
     def __init__(self, _strength=5):
@@ -33,29 +53,78 @@ class Prey(Organism):
     alive_count = 0
     alive_count_lock = Lock()
 
+    starved_in_round = 0
+    starved_in_round_lock = Lock()
+
+    eaten_in_round = 0
+    eaten_in_round_lock = Lock()
+
+    created_in_round = 0
+    created_in_round_lock = Lock()
+
     def __init__(
         self,
         _strength: int = random.randint(5, 10),
         _calorie_usage: int = random.randint(0, 3),
         _offspring_capacity: int = random.randint(1, 5),
     ):
+        Prey.born()
         self.inherited = {
             "STRENGTH": _strength,
             "CALORIE_USAGE": _calorie_usage,
             "OFFSPRING_CAPACITY": _offspring_capacity,
         }
         self.stored_calories = 10
-        with Organism.alive_count_lock:
-            Organism.alive_count += 1
+
+    @staticmethod
+    def display_status():
+        with Prey.alive_count_lock:
+            print(f"Prey alive count: {Prey.alive_count}")
+        print("Prey round changes:")
+        with Prey.starved_in_round_lock:
+            print(f"    Starved: {Prey.starved_in_round}")
+        with Prey.eaten_in_round_lock:
+            print(f"    Eaten: {Prey.eaten_in_round}")
+        with Prey.created_in_round_lock:
+            print(f"    Created: {Prey.created_in_round}")
+
+    @staticmethod
+    def reset_round_status():
+        with Prey.starved_in_round_lock:
+            Prey.starved_in_round = 0
+        with Prey.eaten_in_round_lock:
+            Prey.eaten_in_round = 0
+        with Prey.created_in_round_lock:
+            Prey.created_in_round = 0
+
+    @staticmethod
+    def born():
+        Organism.born()
         with Prey.alive_count_lock:
             Prey.alive_count += 1
 
-    def starved(self, eat=0) -> bool:
+    @staticmethod
+    def died():
+        Organism.died()
+        with Prey.alive_count_lock:
+            Prey.alive_count -= 1
+
+    def confront_day(self, predator_strength=0, eat=0) -> bool:
+        still_alive = True
+        if self.inherited["STRENGTH"] < predator_strength:
+            still_alive = False
+            with Prey.eaten_in_round_lock:
+                Prey.eaten_in_round += 1
+
         self.stored_calories += eat - self.inherited["CALORIE_USAGE"]
         if self.stored_calories <= 0:
-            return True
-        else:
-            return False
+            still_alive = False
+            with Prey.starved_in_round_lock:
+                Prey.starved_in_round += 1
+
+        if not still_alive:
+            Prey.died()
+        return still_alive
 
     def reproduce(self, mate):
         offspring = []
@@ -78,6 +147,8 @@ class Prey(Organism):
                     new_traits["OFFSPRING_CAPACITY"],
                 )
             )
+        with Prey.created_in_round_lock:
+            Prey.created_in_round += len(offspring)
         return offspring
 
 
@@ -125,10 +196,6 @@ def apply_position(target, source):
 
 def process_position(ri, ci):
     for day_num in range(Planet.DAY_COUNT):
-        with Organism.alive_count_lock:
-            if not Organism.alive_count:
-                return
-
         with Planet.worker_state_lock:
             while Planet.worker_state != "PROCESS":
                 Planet.worker_state_cv.wait()
@@ -136,14 +203,7 @@ def process_position(ri, ci):
         with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
             surviving_prey = []
             for current_prey in Planet.grid[ri][ci][0]["PREY"]:
-                if current_prey.inherited["STRENGTH"] < Planet.grid[ri][ci][0][
-                    "PREDATOR_TOP_STRENGTH"
-                ] or current_prey.starved(Planet.grid[ri][ci][0]["FOOD"]):
-                    with Prey.alive_count_lock:
-                        Prey.alive_count -= 1
-                    with Organism.alive_count_lock:
-                        Organism.alive_count -= 1
-                else:
+                if current_prey.confront_day(Planet.grid[ri][ci][0]["PREDATOR_TOP_STRENGTH"], Planet.grid[ri][ci][0]["FOOD"]):
                     surviving_prey.append(current_prey)
 
             next_prey = []
@@ -178,17 +238,21 @@ def process_position(ri, ci):
         with Planet.ready_lock:
             Planet.ready += 1
             if Planet.ready == Planet.worker_count:
-                print(f"--- Post Day {day_num} ---")
-                with Organism.alive_count_lock:
-                    print(f"Organism alive count: {Organism.alive_count}")
                 Planet.ready = 0
+                print(f"--- DAY {day_num} ---")
+                ecosystem_alive = Organism.display_status() 
                 with Planet.worker_state_lock:
-                    Planet.worker_state = "TRANSITION"
+                    if ecosystem_alive:
+                        Planet.worker_state = "TRANSITION"
+                    else:
+                        Planet.worker_state = "DONE"
                     Planet.worker_state_cv.notify_all()
 
         with Planet.worker_state_lock:
-            while Planet.worker_state != "TRANSITION":
+            while Planet.worker_state == "PROCESS":
                 Planet.worker_state_cv.wait()
+            if Planet.worker_state == "DONE":
+                return
 
         with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
             with Planet.grid[ri][ci][1]["POSITION_LOCK"]:
@@ -271,6 +335,9 @@ def run_simulation():
             Planet.grid[ri][ci][0]["PREY"].append(prey)
 
     Planet.worker_count = Planet.grid_shape[0] * Planet.grid_shape[1]
+
+    print("--- STARTING POSITION ---")
+    assert Organism.display_status()
 
     # START THREADS
     for ri in range(Planet.grid_shape[0]):
