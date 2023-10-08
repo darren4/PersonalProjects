@@ -1,224 +1,385 @@
-"""
-General traits
-- randomly move in 8 directions (unless in edge or corner)
-
-Prey traits
-- general
-  - eat when on top of food source
-  - reproduce when on same square as other prey
-  - die when on same square as stronger predator
-- optimize
-  - daily calorie usage
-  - strength (compared to prey)
-  - offspring capacity
-
-Predatory traits
-- strength (compared to prey)
-- never reproduce or die
-"""
-import numpy as np
 import random
-from copy import deepcopy
+from threading import Lock, Thread, Condition
 
-random.seed(728)
 
-class Ecosystem:
-  class Prey:
-    alive_count = 0
-    def __init__(self, _strength=random.randint(5, 10), _calorie_usage=random.randint(0, 0), _offspring_capacity=random.randint(1, 5)):
-      self.inherited = {
-        "STRENGTH": _strength,
-        "CALORIE_USAGE": _calorie_usage,
-        "OFFSPRING_CAPACITY": _offspring_capacity
-      }
-      self.stored_calories = 10
-      Ecosystem.Prey.alive_count += 1
-
-    def starved(self, eat=0) -> bool:
-      self.stored_calories += (eat - self.inherited["CALORIE_USAGE"])
-      if self.stored_calories <= 0:
-        return True
-      else:
-        return False
-      
-    def reproduce(self, mate):
-      offspring = []
-      for _ in range(min(self.inherited["OFFSPRING_CAPACITY"], mate.inherited["OFFSPRING_CAPACITY"])):
-        new_traits = {}
-        for trait, value in self.inherited.items():
-          if random.randint(0, 1):
-            new_traits[trait] = value
-          else:
-            new_traits[trait] = mate.inherited[trait]
-        offspring.append(Ecosystem.Prey(new_traits["STRENGTH"], new_traits["CALORIE_USAGE"], new_traits["OFFSPRING_CAPACITY"]))
-      return offspring
-      
-
-  class Predator:
+class Logger:
     def __init__(self):
-      self.strength = 5
+        self.status = open("status.txt", "w")
+        self.status_lock = Lock()
+        self.evolution_stats = open("evolution_stats.txt", "w")
+        self.evolution_stats_lock = Lock()
 
-  def __init__(self, _dims, _predator_count=1, _prey_count=5):
-    assert(isinstance(_dims, tuple) and len(_dims) == 2)
-    position_start_state = {
-          "WEAK_PREDATORS": [],
-          "STRONG_PREDATOR": None,
-          "PREY": [],
-          "FOOD": 0
-        }
-    self.grid_shape = _dims
-    self.grid = []
-    for ri in range(_dims[0]):
-      self.grid.append([])
-      for ci in range(_dims[1]):
-        self.grid[-1].append(deepcopy(position_start_state))
+    def log(self, msg, msg_type="STATUS"):
+        if msg_type == "STATUS":
+            with self.status_lock:
+                self.status.write(f"{msg}\n")
+        elif msg_type == "EVOLVE":
+            with self.evolution_stats_lock:
+                self.evolution_stats.write(f"{msg}\n")
+        else:
+            print("Unidentified type")
+            assert False
 
-    self.predators = []
-    for _ in range(_predator_count):
-        self.predators.append(Ecosystem.Predator())
-    self.prey = []
-    for _ in range(_prey_count):
-        self.prey.append(Ecosystem.Prey())
-    self.day = 0
+    def __del__(self):
+        self.status.close()
+        self.evolution_stats.close()
 
-  def new_position(self, p0, p1):
+
+class Planet:
+    grid = None
+    grid_shape = None  # TODO: make reader lock
+
+    ready = 0
+    ready_lock = Lock()
+    ready_cv = Condition(ready_lock)
+    worker_count = None
+
+    # PROCESS, TRANSITION, DONE
+    worker_state = "PROCESS"
+    worker_state_lock = Lock()
+    worker_state_cv = Condition(worker_state_lock)
+
+    logger = Logger()
+
+
+class Organism:
+    alive_count = 0
+    alive_count_lock = Lock()
+
+    @staticmethod
+    def display_status():
+        with Organism.alive_count_lock:
+            alive_count = Organism.alive_count
+            Planet.logger.log(f"Organism count: {alive_count}")
+        Prey.display_status()
+        Prey.reset_round_status()
+        return alive_count
+
+    @staticmethod
+    def born():
+        with Organism.alive_count_lock:
+            Organism.alive_count += 1
+
+    @staticmethod
+    def died():
+        with Organism.alive_count_lock:
+            Organism.alive_count -= 1
+
+
+class Predator(Organism):
+    def __init__(self, _strength=5):
+        self.strength = _strength
+
+
+class Prey(Organism):
+    alive_count = 0
+    alive_count_lock = Lock()
+
+    starved_in_round = 0
+    starved_in_round_lock = Lock()
+    eaten_in_round = 0
+    eaten_in_round_lock = Lock()
+    created_in_round = 0
+    created_in_round_lock = Lock()
+
+    totals_stats = {
+        "STRENGTH": 0,
+        "CALORIE_USAGE": 0,
+        "OFFSPRING_CAPACITY": 0,
+    }
+    totals_stats_lock = Lock()
+
+    def __init__(self, _inherited=None):
+        if _inherited:
+            for trait in ["STRENGTH", "CALORIE_USAGE", "OFFSPRING_CAPACITY"]:
+                assert trait in _inherited
+            self.inherited = _inherited
+        else:
+            self.inherited = {
+                "STRENGTH": random.randint(5, 10),
+                "CALORIE_USAGE": random.randint(0, 3),
+                "OFFSPRING_CAPACITY": random.randint(1, 5),
+            }
+        self.stored_calories = 10
+        self.born()
+
+    @staticmethod
+    def display_status():
+        with Prey.alive_count_lock:
+            Planet.logger.log(f"Prey alive count: {Prey.alive_count}")
+        Planet.logger.log("Prey round changes:")
+        with Prey.starved_in_round_lock:
+            Planet.logger.log(f"    Starved: {Prey.starved_in_round}")
+        with Prey.eaten_in_round_lock:
+            Planet.logger.log(f"    Eaten: {Prey.eaten_in_round}")
+        with Prey.created_in_round_lock:
+            Planet.logger.log(f"    Created: {Prey.created_in_round}")
+
+    @staticmethod
+    def reset_round_status():
+        with Prey.starved_in_round_lock:
+            Prey.starved_in_round = 0
+        with Prey.eaten_in_round_lock:
+            Prey.eaten_in_round = 0
+        with Prey.created_in_round_lock:
+            Prey.created_in_round = 0
+
+    @staticmethod
+    def display_evolution_status():
+        with Prey.totals_stats_lock:
+            Planet.logger.log("---", msg_type="EVOLVE")
+            for trait in Prey.totals_stats:
+                avg = Prey.totals_stats[trait] / Prey.alive_count
+                Planet.logger.log(f"Avg {trait}: {avg}", msg_type="EVOLVE")
+
+    def born(self):
+        Organism.born()
+        with Prey.alive_count_lock:
+            Prey.alive_count += 1
+        with Prey.totals_stats_lock:
+            for trait in Prey.totals_stats:
+                Prey.totals_stats[trait] += self.inherited[trait]
+
+    def died(self):
+        Organism.died()
+        with Prey.alive_count_lock:
+            Prey.alive_count -= 1
+        with Prey.totals_stats_lock:
+            for trait in Prey.totals_stats:
+                Prey.totals_stats[trait] -= self.inherited[trait]
+
+    def confront_day(self, predator_strength=0, eat=0) -> bool:
+        still_alive = True
+        if self.inherited["STRENGTH"] < predator_strength:
+            still_alive = False
+            with Prey.eaten_in_round_lock:
+                Prey.eaten_in_round += 1
+
+        self.stored_calories += eat - self.inherited["CALORIE_USAGE"]
+        if self.stored_calories <= 0:
+            still_alive = False
+            with Prey.starved_in_round_lock:
+                Prey.starved_in_round += 1
+
+        if not still_alive:
+            self.died()
+        return still_alive
+
+    def reproduce(self, mate):
+        offspring = []
+        for _ in range(
+            min(
+                self.inherited["OFFSPRING_CAPACITY"],
+                mate.inherited["OFFSPRING_CAPACITY"],
+            )
+        ):
+            new_traits = {}
+            for trait, value in self.inherited.items():
+                if random.randint(0, 1):
+                    new_traits[trait] = value
+                else:
+                    new_traits[trait] = mate.inherited[trait]
+            offspring.append(Prey(new_traits))
+        with Prey.created_in_round_lock:
+            Prey.created_in_round += len(offspring)
+        return offspring
+
+
+def new_position(ri, ci, grid_shape):
     valid_positions = []
-    if p0 + 1 < self.grid_shape[0] and p1 + 1 < self.grid_shape[1]:
-      # Bottom right
-      valid_positions.append((p0 + 1, p1 + 1))
-    if p0 + 1 < self.grid_shape[0]:
-      # Bottom
-      valid_positions.append((p0 + 1, p1))
-    if p0 + 1 < self.grid_shape[0] and p1 - 1 >= 0:
-      # Bottom left
-      valid_positions.append((p0 + 1, p1 - 1))
-    if p1 - 1 >= 0:
-      # Left
-      valid_positions.append((p0, p1 - 1))
-    if p0 - 1 >= 0 and p1 - 1 >= 0:
-      # Top left
-      valid_positions.append((p0 - 1, p1 - 1))
-    if p0 - 1 >= 0:
-      # Top
-      valid_positions.append((p0 - 1, p1))
-    if p0 - 1 >= 0 and p1 + 1 < self.grid_shape[1]:
-      # Top right
-      valid_positions.append((p0 - 1, p1 + 1))
-    if p1 + 1 < self.grid_shape[1]:
-      # Right
-      valid_positions.append((p0, p1 + 1))
+    if ri + 1 < grid_shape[0] and ci + 1 < grid_shape[1]:
+        # Bottom right
+        valid_positions.append((ri + 1, ci + 1))
+    if ri + 1 < grid_shape[0]:
+        # Bottom
+        valid_positions.append((ri + 1, ci))
+    if ri + 1 < grid_shape[0] and ci - 1 >= 0:
+        # Bottom left
+        valid_positions.append((ri + 1, ci - 1))
+    if ci - 1 >= 0:
+        # Left
+        valid_positions.append((ri, ci - 1))
+    if ri - 1 >= 0 and ci - 1 >= 0:
+        # Top left
+        valid_positions.append((ri - 1, ci - 1))
+    if ri - 1 >= 0:
+        # Top
+        valid_positions.append((ri - 1, ci))
+    if ri - 1 >= 0 and ci + 1 < grid_shape[1]:
+        # Top right
+        valid_positions.append((ri - 1, ci + 1))
+    if ci + 1 < grid_shape[1]:
+        # Right
+        valid_positions.append((ri, ci + 1))
 
     random_position = random.randint(0, len(valid_positions) - 1)
     return valid_positions[random_position]
-  
-  def run_simulation(self):
-    print("Initializing food")
-    start_food_source_count = int(self.grid_shape[0] * self.grid_shape[1] * 0.2)
+
+
+def apply_position(target, source):
+    target["PREDATORS"].clear()
+    target["PREY"].clear()
+    for predator in source["PREDATORS"]:
+        target["PREDATORS"].append(predator)
+    for prey in source["PREY"]:
+        target["PREY"].append(prey)
+
+    target["PREDATOR_TOP_STRENGTH"] = source["PREDATOR_TOP_STRENGTH"]
+
+
+def process_position(ri, ci, day_count):
+    for day_num in range(day_count):
+        with Planet.worker_state_lock:
+            while Planet.worker_state != "PROCESS":
+                Planet.worker_state_cv.wait()
+
+        with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
+            surviving_prey = []
+            for current_prey in Planet.grid[ri][ci][0]["PREY"]:
+                if current_prey.confront_day(
+                    Planet.grid[ri][ci][0]["PREDATOR_TOP_STRENGTH"],
+                    Planet.grid[ri][ci][0]["FOOD"],
+                ):
+                    surviving_prey.append(current_prey)
+
+            next_prey = []
+            next_prey.extend(surviving_prey)
+            if surviving_prey:
+                random.shuffle(surviving_prey)
+                correction = 0
+                if len(surviving_prey) % 2 == 1:
+                    correction = 1
+                for left_idx in range(0, len(surviving_prey) - correction, 2):
+                    left_prey, right_prey = (
+                        surviving_prey[left_idx],
+                        surviving_prey[left_idx + 1],
+                    )
+                    new_prey = left_prey.reproduce(right_prey)
+                    next_prey.extend(new_prey)
+
+            for prey in next_prey:
+                new_ri, new_ci = new_position(ri, ci, Planet.grid_shape)
+                with Planet.grid[new_ri][new_ci][1]["POSITION_LOCK"]:
+                    Planet.grid[new_ri][new_ci][1]["PREY"].append(prey)
+
+            for predator in Planet.grid[ri][ci][0]["PREDATORS"]:
+                new_ri, new_ci = new_position(ri, ci, Planet.grid_shape)
+                with Planet.grid[new_ri][new_ci][1]["POSITION_LOCK"]:
+                    Planet.grid[new_ri][new_ci][1]["PREDATORS"].append(predator)
+                    Planet.grid[new_ri][new_ci][1]["PREDATOR_TOP_STRENGTH"] = max(
+                        Planet.grid[ri][ci][0]["PREDATOR_TOP_STRENGTH"],
+                        predator.strength,
+                    )
+
+        with Planet.ready_lock:
+            Planet.ready += 1
+            if Planet.ready == Planet.worker_count:
+                Planet.ready = 0
+                Planet.logger.log(f"--- DAY {day_num} ---")
+                ecosystem_alive = Organism.display_status()
+                Prey.display_evolution_status()
+                with Planet.worker_state_lock:
+                    if ecosystem_alive:
+                        Planet.worker_state = "TRANSITION"
+                    else:
+                        Planet.worker_state = "DONE"
+                    Planet.worker_state_cv.notify_all()
+
+        with Planet.worker_state_lock:
+            while Planet.worker_state == "PROCESS":
+                Planet.worker_state_cv.wait()
+            if Planet.worker_state == "DONE":
+                return
+
+        with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
+            with Planet.grid[ri][ci][1]["POSITION_LOCK"]:
+                apply_position(Planet.grid[ri][ci][0], Planet.grid[ri][ci][1])
+                apply_position(
+                    {
+                        "PREDATORS": [],
+                        "PREDATOR_TOP_STRENGTH": 0,
+                        "PREY": [],
+                    },
+                    Planet.grid[ri][ci][1],
+                )
+
+        with Planet.ready_lock:
+            Planet.ready += 1
+            if Planet.ready == Planet.worker_count:
+                Planet.ready = 0
+                with Planet.worker_state_lock:
+                    Planet.worker_state = "PROCESS"
+                    Planet.worker_state_cv.notify_all()
+
+
+def run_simulation():
+    # Potential user inputs
+    Planet.grid_shape = (10, 10)
+    start_predator_count = 1  # can replace with predator types
+    start_prey_count = 10  # can replace with prey types
+    start_food_source_count = 5  # can replace with food amounts/positions
+    day_count = 5
+
+    Planet.grid = []
+    for ri in range(Planet.grid_shape[0]):
+        Planet.grid.append([])
+        for ci in range(Planet.grid_shape[1]):
+            Planet.grid[-1].append(
+                (
+                    {
+                        "PREDATORS": [],
+                        "PREDATOR_TOP_STRENGTH": 0,
+                        "PREY": [],
+                        "FOOD": 0,
+                        "POSITION_LOCK": Lock(),
+                    },
+                    {
+                        "PREDATORS": [],
+                        "PREDATOR_TOP_STRENGTH": 0,
+                        "PREY": [],
+                        "FOOD": 0,
+                        "POSITION_LOCK": Lock(),
+                    },
+                )
+            )
+
     for _ in range(start_food_source_count):
-      p0, p1 = random.randint(0, self.grid_shape[0] - 1), random.randint(0, self.grid_shape[1] - 1)
-      self.grid[p0][p1]["FOOD"] += 1
-    
-    reset_grid = deepcopy(self.grid)
+        ri, ci = random.randint(0, Planet.grid_shape[0] - 1), random.randint(
+            0, Planet.grid_shape[1] - 1
+        )
+        with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
+            Planet.grid[ri][ci][0]["FOOD"] += 1
+            Planet.grid[ri][ci][1]["FOOD"] += 1
 
-    print("Initializing predators")
-    for predator in self.predators:
-      p0, p1 = random.randint(0, self.grid_shape[0] - 1), random.randint(0, self.grid_shape[1] - 1)
-      if self.grid[p0][p1]["STRONG_PREDATOR"]:
-        if predator.strength > self.grid[p0][p1]["STRONG_PREDATOR"].strength:
-          self.grid[p0][p1]["WEAK_PREDATORS"].append(self.grid[p0][p1]["STRONG_PREDATOR"])
-          self.grid[p0][p1]["STRONG_PREDATOR"] = predator
-        else:
-          self.grid[p0][p1]["WEAK_PREDATORS"].append(predator)
-      else:
-        self.grid[p0][p1]["STRONG_PREDATOR"] = predator
-    
-    print("Initializing prey")
-    for prey in self.prey:
-      p0, p1 = random.randint(0, self.grid_shape[0] - 1), random.randint(0, self.grid_shape[1] - 1)
-      self.grid[p0][p1]["PREY"].append(prey)
-    print(f"Initialized {Ecosystem.Prey.alive_count} prey")
+    for _ in range(start_predator_count):
+        ri, ci = random.randint(0, Planet.grid_shape[0] - 1), random.randint(
+            0, Planet.grid_shape[1] - 1
+        )
+        with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
+            predator = Predator()
+            Planet.grid[ri][ci][0]["PREDATORS"].append(predator)
+            Planet.grid[ri][ci][0]["PREDATOR_TOP_STRENGTH"] = max(
+                Planet.grid[ri][ci][0]["PREDATOR_TOP_STRENGTH"], predator.strength
+            )
 
-    print("Starting simulation")
-    for day in range(10):
-      print(f"--- Day {day} ---")
-      next_grid = deepcopy(reset_grid)
-      for p0 in range(self.grid_shape[0]):
-        for p1 in range(self.grid_shape[1]):
-          # Display position status
-          # print(f"Position ({p0}, {p1}) starting")
-          # print(f"Prey count: {len(self.grid[p0][p1]['PREY'])}")
-          # if self.grid[p0][p1]['STRONG_PREDATOR']:
-          #   print(f"Predator strength: {self.grid[p0][p1]['STRONG_PREDATOR'].strength}")
-          # print(f"Food quantity: {self.grid[p0][p1]['FOOD']}")
-          
-          # Process surviving prey
-          surviving_prey = []
-          for _ in range(len(self.grid[p0][p1]["PREY"])):
-            current_prey = self.grid[p0][p1]["PREY"].pop()
-            survived = True
+    for _ in range(start_prey_count):
+        ri, ci = random.randint(0, Planet.grid_shape[0] - 1), random.randint(
+            0, Planet.grid_shape[1] - 1
+        )
+        with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
+            prey = Prey()
+            Planet.grid[ri][ci][0]["PREY"].append(prey)
 
-            if self.grid[p0][p1]["STRONG_PREDATOR"] and current_prey.inherited["STRENGTH"] < self.grid[p0][p1]["STRONG_PREDATOR"].strength:
-              print("Prey eaten")
-              Ecosystem.Prey.alive_count -= 1
-              survived = False
+    Planet.worker_count = Planet.grid_shape[0] * Planet.grid_shape[1]
 
-            food_amount = self.grid[p0][p1]["FOOD"]
-            if current_prey.starved(food_amount):
-              print("Prey starved")
-              Ecosystem.Prey.alive_count -= 1
-              survived = False
+    Planet.logger.log("--- STARTING POSITION ---")
+    assert Organism.display_status()
 
-            if survived:
-              new_p0, new_p1 = self.new_position(p0, p1)
-              next_grid[new_p0][new_p1]["PREY"].append(current_prey)
-              surviving_prey.append(current_prey)
-          
-          # Process reproduction
-          if surviving_prey:
-            random.shuffle(surviving_prey)
-            correction = 0
-            if len(surviving_prey) % 2 == 1:
-              correction = 1
-            for left_idx in range(0, len(surviving_prey) - correction, 2):
-              left_prey, right_prey = surviving_prey[left_idx], surviving_prey[left_idx + 1]
-              new_prey = left_prey.reproduce(right_prey)
-              for prey in new_prey:
-                new_p0, new_p1 = self.new_position(p0, p1)
-                next_grid[new_p0][new_p1]["PREY"].append(prey)
-
-          # Process moving predators
-          if self.grid[p0][p1]["STRONG_PREDATOR"]:
-            self.grid[p0][p1]["WEAK_PREDATORS"].append(self.grid[p0][p1]["STRONG_PREDATOR"])
-          self.grid[p0][p1]["STRONG_PREDATOR"] = None
-          for predator in self.grid[p0][p1]["WEAK_PREDATORS"]:
-            new_p0, new_p1 = self.new_position(p0, p1)
-            if next_grid[new_p0][new_p1]["STRONG_PREDATOR"]:
-              if predator.strength > next_grid[new_p0][new_p1]["STRONG_PREDATOR"].strength:
-                next_grid[new_p0][new_p1]["WEAK_PREDATORS"].append(next_grid[new_p0][new_p1]["STRONG_PREDATOR"])
-                next_grid[new_p0][new_p1]["STRONG_PREDATOR"] = predator
-              else:
-                next_grid[new_p0][new_p1]["WEAK_PREDATORS"].append(predator)
-            else:
-              next_grid[new_p0][new_p1]["STRONG_PREDATOR"] = predator
-      self.grid = next_grid
-
-      # Process day aftermath
-      print(f"Alive prey: {Ecosystem.Prey.alive_count}")
-      if Ecosystem.Prey.alive_count == 0:
-        return
-
-      # TODO display grid each day
-      prey_counts = np.zeros((self.grid_shape))
-      for p0 in range(self.grid_shape[0]):
-        for p1 in range(self.grid_shape[1]):
-          prey_counts[p0, p1] = len(self.grid[p0][p1]["PREY"])
-      print(prey_counts)
-
-      # TODO write output to file
+    # START THREADS
+    for ri in range(Planet.grid_shape[0]):
+        for ci in range(Planet.grid_shape[1]):
+            Thread(target=process_position, args=[ri, ci, day_count]).start()
 
 
 if __name__ == "__main__":
-  e = Ecosystem((10, 10))
-  e.run_simulation()
-          
-
+    run_simulation()
