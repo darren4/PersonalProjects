@@ -1,5 +1,5 @@
 import random
-from threading import Lock, Thread, Condition
+from threading import Lock, Condition
 
 
 class Logger:
@@ -65,11 +65,41 @@ class Organism:
         with Organism.alive_count_lock:
             Organism.alive_count -= 1
 
+    def generate_offspring(self, mate):
+        offspring = []
+        for _ in range(
+            min(
+                self.inherited["OFFSPRING_CAPACITY"],
+                mate.inherited["OFFSPRING_CAPACITY"],
+            )
+        ):
+            new_traits = {}
+            for trait, value in self.inherited.items():
+                if random.randint(0, 1):
+                    new_traits[trait] = value
+                else:
+                    new_traits[trait] = mate.inherited[trait]
+            offspring.append(Prey(new_traits))
+        return offspring
+
 
 class Predator(Organism):
-    def __init__(self, _strength=5):
+    alive_count = 0
+    alive_count_lock = Lock()
+
+    starved_in_round = 0
+    starved_in_round_lock = Lock()
+    created_in_round = 0
+    created_in_round_lock = Lock()
+
+    def __init__(self, _strength=50):
         self.strength = _strength
 
+    def reproduce(self, mate):
+        offspring = self.generate_offspring(mate)
+        with Predator.created_in_round_lock:
+            Predator.created_in_round += len(offspring)
+        return offspring
 
 class Prey(Organism):
     alive_count = 0
@@ -130,7 +160,7 @@ class Prey(Organism):
             Planet.logger.log("---", msg_type="EVOLVE")
             for trait in Prey.totals_stats:
                 avg = Prey.totals_stats[trait] / Prey.alive_count
-                Planet.logger.log(f"Avg {trait}: {avg}", msg_type="EVOLVE")
+                Planet.logger.log(f"Avg {trait}: {round(avg, 2)}", msg_type="EVOLVE")
 
     def born(self):
         Organism.born()
@@ -166,20 +196,7 @@ class Prey(Organism):
         return still_alive
 
     def reproduce(self, mate):
-        offspring = []
-        for _ in range(
-            min(
-                self.inherited["OFFSPRING_CAPACITY"],
-                mate.inherited["OFFSPRING_CAPACITY"],
-            )
-        ):
-            new_traits = {}
-            for trait, value in self.inherited.items():
-                if random.randint(0, 1):
-                    new_traits[trait] = value
-                else:
-                    new_traits[trait] = mate.inherited[trait]
-            offspring.append(Prey(new_traits))
+        offspring = self.generate_offspring(mate)
         with Prey.created_in_round_lock:
             Prey.created_in_round += len(offspring)
         return offspring
