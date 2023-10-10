@@ -1,5 +1,6 @@
 import random
 from threading import Lock, Condition
+from abc import ABC
 
 
 class Logger:
@@ -42,30 +43,62 @@ class Planet:
     logger = Logger()
 
 
-class Organism:
+class Organism(ABC):
     alive_count = 0
     alive_count_lock = Lock()
+
+    starved_in_round = 0
+    starved_in_round_lock = Lock()
+    eaten_in_round = 0
+    eaten_in_round_lock = Lock()
+    created_in_round = 0
+    created_in_round_lock = Lock()
+
+    totals_stats = {
+        "STRENGTH": 0,
+        "CALORIE_USAGE": 0,
+        "OFFSPRING_CAPACITY": 0,
+    }
+    totals_stats_lock = Lock()
+
+    def __init__(self, _inherited=None):
+        with Organism.alive_count_lock:
+            Organism.alive_count += 1
+        with self.alive_count_lock:
+            self.alive_count += 1
+
+        if _inherited:
+            for trait in ["STRENGTH", "CALORIE_USAGE", "OFFSPRING_CAPACITY"]:
+                assert trait in _inherited
+            self.inherited = _inherited
+        else:
+            self.inherited = {
+                "STRENGTH": random.randint(5, 10),
+                "CALORIE_USAGE": random.randint(0, 3),
+                "OFFSPRING_CAPACITY": random.randint(1, 5),
+            }
+        self.stored_calories = 10
+
+        with self.totals_stats_lock:
+            for trait in self.totals_stats:
+                self.totals_stats[trait] += self.inherited[trait]
+
+    def __del__(self):
+        with Organism.alive_count_lock:
+            Organism.alive_count -= 1
 
     @staticmethod
     def display_status():
         with Organism.alive_count_lock:
             alive_count = Organism.alive_count
             Planet.logger.log(f"Organism count: {alive_count}")
-        Prey.display_status()
-        Prey.reset_round_status()
         return alive_count
 
-    @staticmethod
-    def born():
-        with Organism.alive_count_lock:
-            Organism.alive_count += 1
+    @classmethod
+    def create_child(cls, new_traits):
+        return cls(new_traits)
 
-    @staticmethod
-    def died():
-        with Organism.alive_count_lock:
-            Organism.alive_count -= 1
-
-    def generate_offspring(self, mate):
+    def reproduce(self, mate):
         offspring = []
         for _ in range(
             min(
@@ -79,27 +112,12 @@ class Organism:
                     new_traits[trait] = value
                 else:
                     new_traits[trait] = mate.inherited[trait]
-            offspring.append(Prey(new_traits))
+            offspring.append(self.create_child(new_traits))
+
+        with self.created_in_round_lock:
+            self.created_in_round += len(offspring)
         return offspring
 
-
-class Predator(Organism):
-    alive_count = 0
-    alive_count_lock = Lock()
-
-    starved_in_round = 0
-    starved_in_round_lock = Lock()
-    created_in_round = 0
-    created_in_round_lock = Lock()
-
-    def __init__(self, _strength=50):
-        self.strength = _strength
-
-    def reproduce(self, mate):
-        offspring = self.generate_offspring(mate)
-        with Predator.created_in_round_lock:
-            Predator.created_in_round += len(offspring)
-        return offspring
 
 class Prey(Organism):
     alive_count = 0
