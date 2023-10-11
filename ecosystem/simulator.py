@@ -1,4 +1,4 @@
-from components import Planet, Organism, Prey, Predator
+from components import Planet, Ecosystem, Prey, Predator
 
 import random
 from threading import Lock, Thread
@@ -114,11 +114,12 @@ def process_position(ri, ci, day_count):
             if Planet.ready == Planet.worker_count:
                 Planet.ready = 0
                 Planet.logger.log(f"--- DAY {day_num} ---")
-                ecosystem_alive = Organism.display_status()
+                ecosystem_alive = Ecosystem.display_status()
                 with Planet.worker_state_lock:
                     if ecosystem_alive:
                         Planet.worker_state = "TRANSITION"
                         Prey.display_evolution_status()
+                        Predator.display_evolution_status()
                     else:
                         Planet.worker_state = "DONE"
                     Planet.worker_state_cv.notify_all()
@@ -211,7 +212,7 @@ def run_simulation():
     Planet.worker_count = Planet.grid_shape[0] * Planet.grid_shape[1]
 
     Planet.logger.log("--- STARTING POSITION ---")
-    assert Organism.display_status()
+    assert Ecosystem.display_status()
 
     # START THREADS
     for ri in range(Planet.grid_shape[0]):

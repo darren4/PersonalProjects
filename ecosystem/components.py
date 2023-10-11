@@ -43,14 +43,24 @@ class Planet:
     logger = Logger()
 
 
+class Ecosystem:
+    alive_count = 0
+    alive_count_lock = Lock()
+
+    @staticmethod
+    def display_status():
+        with Ecosystem.alive_count_lock:
+            alive_count = Ecosystem.alive_count
+            Planet.logger.log(f"Organism count: {alive_count}")
+            return alive_count
+
+
 class Organism(ABC):
     alive_count = 0
     alive_count_lock = Lock()
 
     starved_in_round = 0
     starved_in_round_lock = Lock()
-    eaten_in_round = 0
-    eaten_in_round_lock = Lock()
     created_in_round = 0
     created_in_round_lock = Lock()
 
@@ -61,11 +71,13 @@ class Organism(ABC):
     }
     totals_stats_lock = Lock()
 
+    organism_type = None
+
     def __init__(self, _inherited=None):
-        with Organism.alive_count_lock:
-            Organism.alive_count += 1
-        with self.alive_count_lock:
-            self.alive_count += 1
+        with Ecosystem.alive_count_lock:
+            Ecosystem.alive_count += 1
+        with self.__class__.alive_count_lock:
+            self.__class__.alive_count += 1
 
         if _inherited:
             for trait in ["STRENGTH", "CALORIE_USAGE", "OFFSPRING_CAPACITY"]:
@@ -80,23 +92,41 @@ class Organism(ABC):
         self.stored_calories = 10
 
         with self.totals_stats_lock:
-            for trait in self.totals_stats:
-                self.totals_stats[trait] += self.inherited[trait]
+            for trait in self.__class__.totals_stats:
+                self.__class__.totals_stats[trait] += self.inherited[trait]
 
     def __del__(self):
-        with Organism.alive_count_lock:
-            Organism.alive_count -= 1
+        with Ecosystem.alive_count_lock:
+            Ecosystem.alive_count -= 1
 
-    @staticmethod
-    def display_status():
-        with Organism.alive_count_lock:
-            alive_count = Organism.alive_count
-            Planet.logger.log(f"Organism count: {alive_count}")
-        return alive_count
+    @classmethod
+    def display_status(cls):
+        with cls.alive_count_lock:
+            Planet.logger.log(f"{cls.type} alive count: {cls.alive_count}")
+        Planet.logger.log(f"{cls.type} round changes:")
+        with cls.starved_in_round_lock:
+            Planet.logger.log(f"    Starved: {cls.starved_in_round}")
+        with cls.created_in_round_lock:
+            Planet.logger.log(f"    Created: {cls.created_in_round}")
+
+    @classmethod
+    def reset_round_status(cls):
+        with cls.starved_in_round_lock:
+            cls.starved_in_round = 0
+        with cls.created_in_round_lock:
+            cls.created_in_round = 0
 
     @classmethod
     def create_child(cls, new_traits):
         return cls(new_traits)
+
+    @classmethod
+    def display_evolution_status(cls):
+        with cls.totals_stats_lock:
+            Planet.logger.log(f"--- {cls.organism_type} ---", msg_type="EVOLVE")
+            for trait in cls.totals_stats:
+                avg = cls.totals_stats[trait] / cls.alive_count
+                Planet.logger.log(f"Avg {trait}: {round(avg, 2)}", msg_type="EVOLVE")
 
     def reproduce(self, mate):
         offspring = []
@@ -114,8 +144,8 @@ class Organism(ABC):
                     new_traits[trait] = mate.inherited[trait]
             offspring.append(self.create_child(new_traits))
 
-        with self.created_in_round_lock:
-            self.created_in_round += len(offspring)
+        with self.__class__.created_in_round_lock:
+            self.__class__.created_in_round += len(offspring)
         return offspring
 
 
@@ -137,84 +167,29 @@ class Prey(Organism):
     }
     totals_stats_lock = Lock()
 
-    def __init__(self, _inherited=None):
-        if _inherited:
-            for trait in ["STRENGTH", "CALORIE_USAGE", "OFFSPRING_CAPACITY"]:
-                assert trait in _inherited
-            self.inherited = _inherited
-        else:
-            self.inherited = {
-                "STRENGTH": random.randint(5, 10),
-                "CALORIE_USAGE": random.randint(0, 3),
-                "OFFSPRING_CAPACITY": random.randint(1, 5),
-            }
-        self.stored_calories = 10
-        self.born()
+    @classmethod
+    def display_status(self):
+        super().display_status()
+        with self.eaten_in_round_lock:
+            Planet.logger.log(f"    Eaten: {self.eaten_in_round}")
 
-    @staticmethod
-    def display_status():
-        with Prey.alive_count_lock:
-            Planet.logger.log(f"Prey alive count: {Prey.alive_count}")
-        Planet.logger.log("Prey round changes:")
-        with Prey.starved_in_round_lock:
-            Planet.logger.log(f"    Starved: {Prey.starved_in_round}")
-        with Prey.eaten_in_round_lock:
-            Planet.logger.log(f"    Eaten: {Prey.eaten_in_round}")
-        with Prey.created_in_round_lock:
-            Planet.logger.log(f"    Created: {Prey.created_in_round}")
-
-    @staticmethod
-    def reset_round_status():
-        with Prey.starved_in_round_lock:
-            Prey.starved_in_round = 0
-        with Prey.eaten_in_round_lock:
-            Prey.eaten_in_round = 0
-        with Prey.created_in_round_lock:
-            Prey.created_in_round = 0
-
-    @staticmethod
-    def display_evolution_status():
-        with Prey.totals_stats_lock:
-            Planet.logger.log("---", msg_type="EVOLVE")
-            for trait in Prey.totals_stats:
-                avg = Prey.totals_stats[trait] / Prey.alive_count
-                Planet.logger.log(f"Avg {trait}: {round(avg, 2)}", msg_type="EVOLVE")
-
-    def born(self):
-        Organism.born()
-        with Prey.alive_count_lock:
-            Prey.alive_count += 1
-        with Prey.totals_stats_lock:
-            for trait in Prey.totals_stats:
-                Prey.totals_stats[trait] += self.inherited[trait]
-
-    def died(self):
-        Organism.died()
-        with Prey.alive_count_lock:
-            Prey.alive_count -= 1
-        with Prey.totals_stats_lock:
-            for trait in Prey.totals_stats:
-                Prey.totals_stats[trait] -= self.inherited[trait]
+    @classmethod
+    def reset_round_status(cls):
+        super().reset_round_status()
+        with cls.eaten_in_round_lock:
+            cls.eaten_in_round = 0
 
     def confront_day(self, predator_strength=0, eat=0) -> bool:
         still_alive = True
         if self.inherited["STRENGTH"] < predator_strength:
             still_alive = False
-            with Prey.eaten_in_round_lock:
-                Prey.eaten_in_round += 1
+            with self.__class__.eaten_in_round_lock:
+                self.__class__.eaten_in_round += 1
 
         self.stored_calories += eat - self.inherited["CALORIE_USAGE"]
         if self.stored_calories <= 0:
             still_alive = False
-            with Prey.starved_in_round_lock:
-                Prey.starved_in_round += 1
+            with self.__class__.starved_in_round_lock:
+                self.__class__.starved_in_round += 1
 
-        if not still_alive:
-            self.died()
         return still_alive
-
-    def reproduce(self, mate):
-        offspring = self.generate_offspring(mate)
-        with Prey.created_in_round_lock:
-            Prey.created_in_round += len(offspring)
-        return offspring
