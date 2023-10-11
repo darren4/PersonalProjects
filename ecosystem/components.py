@@ -81,24 +81,26 @@ class Organism(ABC):
             self.__class__.alive_count += 1
 
         if _inherited:
-            for trait in ["STRENGTH", "CALORIE_USAGE", "OFFSPRING_CAPACITY"]:
-                assert trait in _inherited
+            if set(_inherited.keys()) != {
+                "STRENGTH",
+                "CALORIE_USAGE",
+                "OFFSPRING_CAPACITY",
+            }:
+                raise ValueError(
+                    f"Inherited traits have invalid keys: {list(_inherited.keys())}"
+                )
             self.inherited = _inherited
         else:
             self.inherited = {
-                "STRENGTH": random.randint(5, 10),
-                "CALORIE_USAGE": random.randint(0, 3),
-                "OFFSPRING_CAPACITY": random.randint(1, 5),
+                "STRENGTH": random.randint(0, 10),
+                "CALORIE_USAGE": random.randint(1, 3),
+                "OFFSPRING_CAPACITY": random.randint(0, 3),
             }
-        self.stored_calories = 10
+        self.stored_calories = 1
 
         with self.totals_stats_lock:
             for trait in self.__class__.totals_stats:
                 self.__class__.totals_stats[trait] += self.inherited[trait]
-
-    def __del__(self):
-        with Ecosystem.alive_count_lock:
-            Ecosystem.alive_count -= 1
 
     @classmethod
     def display_status(cls):
@@ -126,8 +128,13 @@ class Organism(ABC):
         with cls.totals_stats_lock:
             Planet.logger.log(f"--- {cls.organism_type} ---", msg_type="EVOLVE")
             for trait in cls.totals_stats:
-                avg = cls.totals_stats[trait] / cls.alive_count
-                Planet.logger.log(f"Avg {trait}: {round(avg, 2)}", msg_type="EVOLVE")
+                try:
+                    avg = cls.totals_stats[trait] / cls.alive_count
+                    Planet.logger.log(
+                        f"Avg {trait}: {round(avg, 2)}", msg_type="EVOLVE"
+                    )
+                except ZeroDivisionError:
+                    break
 
     def reproduce(self, mate):
         offspring = []
@@ -198,6 +205,12 @@ class Prey(Organism):
             with self.__class__.starved_in_round_lock:
                 self.__class__.starved_in_round += 1
 
+        if not still_alive:
+            with Ecosystem.alive_count_lock:
+                Ecosystem.alive_count -= 1
+            with self.__class__.alive_count_lock:
+                self.__class__.alive_count -= 1
+
         return still_alive
 
 
@@ -230,6 +243,10 @@ class Predator(Organism):
         if self.stored_calories <= 0:
             with self.__class__.starved_in_round_lock:
                 self.__class__.starved_in_round += 1
-            return False
+
+            with Ecosystem.alive_count_lock:
+                Ecosystem.alive_count -= 1
+            with self.__class__.alive_count_lock:
+                self.__class__.alive_count -= 1
         else:
             return True

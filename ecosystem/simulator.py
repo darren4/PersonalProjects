@@ -55,6 +55,7 @@ def get_survivors(prey, predators, food):
             surviving_prey.append(current_prey)
         if current_predator.confront_day(current_prey.inherited["STRENGTH"]):
             surviving_predators.append(current_predator)
+
     for i in range(end_confront_idx, len(prey)):
         current_prey = prey[i]
         if current_prey.confront_day(0, food):
@@ -120,7 +121,9 @@ def process_position(ri, ci, day_count):
                     if ecosystem_alive:
                         Planet.worker_state = "TRANSITION"
                         Prey.display_evolution_status()
+                        Prey.reset_round_status()
                         Predator.display_evolution_status()
+                        Predator.reset_round_status()
                     else:
                         Planet.worker_state = "DONE"
                     Planet.worker_state_cv.notify_all()
@@ -153,10 +156,10 @@ def process_position(ri, ci, day_count):
 
 def run_simulation():
     # Potential user inputs
-    Planet.grid_shape = (10, 10)
-    start_predator_count = 20  # can replace with predator types
-    start_prey_count = 10  # can replace with prey types
-    start_food_source_count = 5  # can replace with food amounts/positions
+    Planet.grid_shape = (3, 3)
+    start_predator_count = 5  # can replace with predator types
+    start_prey_count = 5  # can replace with prey types
+    start_food_source_count = 500  # can replace with food amounts/positions
     day_count = 10
 
     Planet.grid = []
@@ -201,7 +204,13 @@ def run_simulation():
             0, Planet.grid_shape[1] - 1
         )
         with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
-            prey = Prey()
+            prey = Prey(
+                _inherited={
+                    "STRENGTH": 0,
+                    "OFFSPRING_CAPACITY": 0,
+                    "CALORIE_USAGE": 0,
+                }
+            )
             Planet.grid[ri][ci][0]["PREY"].append(prey)
 
     Planet.worker_count = Planet.grid_shape[0] * Planet.grid_shape[1]
