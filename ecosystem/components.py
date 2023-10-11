@@ -1,6 +1,7 @@
 import random
 from threading import Lock, Condition
 from abc import ABC
+import math
 
 
 class Logger:
@@ -56,20 +57,20 @@ class Ecosystem:
 
 
 class Organism(ABC):
-    alive_count = 0
-    alive_count_lock = Lock()
+    alive_count = None
+    alive_count_lock = None
 
-    starved_in_round = 0
-    starved_in_round_lock = Lock()
-    created_in_round = 0
-    created_in_round_lock = Lock()
+    starved_in_round = None
+    starved_in_round_lock = None
+    created_in_round = None
+    created_in_round_lock = None
 
     totals_stats = {
-        "STRENGTH": 0,
-        "CALORIE_USAGE": 0,
-        "OFFSPRING_CAPACITY": 0,
+        "STRENGTH": None,
+        "CALORIE_USAGE": None,
+        "OFFSPRING_CAPACITY": None,
     }
-    totals_stats_lock = Lock()
+    totals_stats_lock = None
 
     organism_type = None
 
@@ -102,8 +103,8 @@ class Organism(ABC):
     @classmethod
     def display_status(cls):
         with cls.alive_count_lock:
-            Planet.logger.log(f"{cls.type} alive count: {cls.alive_count}")
-        Planet.logger.log(f"{cls.type} round changes:")
+            Planet.logger.log(f"{cls.organism_type} alive count: {cls.alive_count}")
+        Planet.logger.log(f"{cls.organism_type} round changes:")
         with cls.starved_in_round_lock:
             Planet.logger.log(f"    Starved: {cls.starved_in_round}")
         with cls.created_in_round_lock:
@@ -148,6 +149,9 @@ class Organism(ABC):
             self.__class__.created_in_round += len(offspring)
         return offspring
 
+    def confront_day(self):
+        raise NotImplementedError()
+
 
 class Prey(Organism):
     alive_count = 0
@@ -166,6 +170,8 @@ class Prey(Organism):
         "OFFSPRING_CAPACITY": 0,
     }
     totals_stats_lock = Lock()
+
+    organism_type = "Prey"
 
     @classmethod
     def display_status(self):
@@ -193,3 +199,37 @@ class Prey(Organism):
                 self.__class__.starved_in_round += 1
 
         return still_alive
+
+
+class Predator(Organism):
+    alive_count = 0
+    alive_count_lock = Lock()
+
+    starved_in_round = 0
+    starved_in_round_lock = Lock()
+    eaten_in_round = 0
+    eaten_in_round_lock = Lock()
+    created_in_round = 0
+    created_in_round_lock = Lock()
+
+    totals_stats = {
+        "STRENGTH": 0,
+        "CALORIE_USAGE": 0,
+        "OFFSPRING_CAPACITY": 0,
+    }
+    totals_stats_lock = Lock()
+
+    organism_type = "Predator"
+
+    def confront_day(self, prey_strength) -> bool:
+        food_amount = 0
+        if not math.isnan(prey_strength) and self.inherited["STRENGTH"] > prey_strength:
+            food_amount = 1
+
+        self.stored_calories += food_amount - self.inherited["CALORIE_USAGE"]
+        if self.stored_calories <= 0:
+            with self.__class__.starved_in_round_lock:
+                self.__class__.starved_in_round += 1
+            return False
+        else:
+            return True

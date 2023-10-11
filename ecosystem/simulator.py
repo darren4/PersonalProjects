@@ -43,8 +43,6 @@ def apply_position(target, source):
     for prey in source["PREY"]:
         target["PREY"].append(prey)
 
-    target["PREDATOR_TOP_STRENGTH"] = source["PREDATOR_TOP_STRENGTH"]
-
 
 def get_survivors(prey, predators, food):
     surviving_prey = []
@@ -63,9 +61,10 @@ def get_survivors(prey, predators, food):
             surviving_prey.append(current_prey)
     for i in range(end_confront_idx, len(predators)):
         current_predator = predators[i]
-        if current_predator.confront_day(None):
+        if current_predator.confront_day(float("nan")):
             surviving_predators.append(current_predator)
     return surviving_prey, surviving_predators
+
 
 def reproduce(parents):
     parents_and_offspring = []
@@ -115,6 +114,8 @@ def process_position(ri, ci, day_count):
                 Planet.ready = 0
                 Planet.logger.log(f"--- DAY {day_num} ---")
                 ecosystem_alive = Ecosystem.display_status()
+                Prey.display_status()
+                Predator.display_status()
                 with Planet.worker_state_lock:
                     if ecosystem_alive:
                         Planet.worker_state = "TRANSITION"
@@ -137,7 +138,6 @@ def process_position(ri, ci, day_count):
                     Planet.grid[ri][ci][1],
                     {
                         "PREDATORS": [],
-                        "PREDATOR_TOP_STRENGTH": 0,
                         "PREY": [],
                     },
                 )
@@ -167,14 +167,12 @@ def run_simulation():
                 (
                     {
                         "PREDATORS": [],
-                        "PREDATOR_TOP_STRENGTH": 0,
                         "PREY": [],
                         "FOOD": 0,
                         "POSITION_LOCK": Lock(),
                     },
                     {
                         "PREDATORS": [],
-                        "PREDATOR_TOP_STRENGTH": 0,
                         "PREY": [],
                         "FOOD": 0,
                         "POSITION_LOCK": Lock(),
@@ -197,9 +195,6 @@ def run_simulation():
         with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
             predator = Predator()
             Planet.grid[ri][ci][0]["PREDATORS"].append(predator)
-            Planet.grid[ri][ci][0]["PREDATOR_TOP_STRENGTH"] = max(
-                Planet.grid[ri][ci][0]["PREDATOR_TOP_STRENGTH"], predator.strength
-            )
 
     for _ in range(start_prey_count):
         ri, ci = random.randint(0, Planet.grid_shape[0] - 1), random.randint(
