@@ -113,8 +113,7 @@ def process_position(ri, ci, day_count):
             Planet.ready += 1
             if Planet.ready == Planet.worker_count:
                 Planet.ready = 0
-                Planet.logger.log(f"--- DAY {day_num} ---")
-                ecosystem_alive = Ecosystem.display_status()
+                ecosystem_alive = Ecosystem.display_status() > 0
                 Prey.display_status()
                 Predator.display_status()
                 with Planet.worker_state_lock:
@@ -159,7 +158,7 @@ def run_simulation():
     Planet.grid_shape = (3, 3)
     start_predator_count = 5  # can replace with predator types
     start_prey_count = 5  # can replace with prey types
-    start_food_source_count = 500  # can replace with food amounts/positions
+    start_food_source_count = 0  # can replace with food amounts/positions
     day_count = 10
 
     Planet.grid = []
@@ -196,7 +195,13 @@ def run_simulation():
             0, Planet.grid_shape[1] - 1
         )
         with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
-            predator = Predator()
+            predator = Predator(
+                _inherited={
+                    "STRENGTH": random.randint(0, 4),
+                    "OFFSPRING_CAPACITY": 4,
+                    "CALORIE_USAGE": 1,
+                }, starting_calories=5
+            )
             Planet.grid[ri][ci][0]["PREDATORS"].append(predator)
 
     for _ in range(start_prey_count):
@@ -206,8 +211,8 @@ def run_simulation():
         with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
             prey = Prey(
                 _inherited={
-                    "STRENGTH": 0,
-                    "OFFSPRING_CAPACITY": 0,
+                    "STRENGTH": random.randint(0, 5),
+                    "OFFSPRING_CAPACITY": 4,
                     "CALORIE_USAGE": 0,
                 }
             )
@@ -215,14 +220,25 @@ def run_simulation():
 
     Planet.worker_count = Planet.grid_shape[0] * Planet.grid_shape[1]
 
-    Planet.logger.log("--- STARTING POSITION ---")
-    assert Ecosystem.display_status()
-
+    assert Ecosystem.display_status() > 0
+    Prey.display_status()
+    Predator.display_status()
+    Prey.display_evolution_status()
+    Predator.display_evolution_status()
     # START THREADS
+    threads = []
     for ri in range(Planet.grid_shape[0]):
         for ci in range(Planet.grid_shape[1]):
-            Thread(target=process_position, args=[ri, ci, day_count]).start()
-
+            t = Thread(target=process_position, args=[ri, ci, day_count])
+            t.start()
+            threads.append(t)
+    for thread in threads:
+        thread.join()
+    Ecosystem.save_status_history()
+    Prey.save_status_history()
+    Predator.save_status_history()
+    Prey.save_evolution_history()
+    Predator.save_evolution_history()
 
 if __name__ == "__main__":
     run_simulation()

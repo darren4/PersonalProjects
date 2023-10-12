@@ -1,30 +1,30 @@
 import random
 from threading import Lock, Condition
-from abc import ABC
+from abc import ABC, abstractmethod
 import math
+import pandas as pd
 
 
 class Logger:
-    def __init__(self):
-        self.status = open("status.txt", "w")
-        self.status_lock = Lock()
-        self.evolution_stats = open("evolution_stats.txt", "w")
-        self.evolution_stats_lock = Lock()
+    def __init__(self, traits):
+        self.data = {}
+        for trait in traits:
+            self.data[trait] = []
 
-    def log(self, msg, msg_type="STATUS"):
-        if msg_type == "STATUS":
-            with self.status_lock:
-                self.status.write(f"{msg}\n")
-        elif msg_type == "EVOLVE":
-            with self.evolution_stats_lock:
-                self.evolution_stats.write(f"{msg}\n")
-        else:
-            print("Unidentified type")
-            assert False
+    def log(self, trait, value):
+        try:
+            self.data[trait].append(value)
+        except KeyError:
+            print(f"Invalid trait: {trait}")
 
-    def __del__(self):
-        self.status.close()
-        self.evolution_stats.close()
+    def to_csv(self, filename):
+        lens = []
+        for trait in self.data:
+            lens.append(len(self.data[trait]))
+        for i in range(1, len(lens)):
+            assert lens[i] == lens[i-1]
+        df=pd.DataFrame.from_dict(self.data,orient='index').transpose()
+        df.to_csv(filename)
 
 
 class Planet:
@@ -41,22 +41,29 @@ class Planet:
     worker_state_lock = Lock()
     worker_state_cv = Condition(worker_state_lock)
 
-    logger = Logger()
-
 
 class Ecosystem:
     alive_count = 0
     alive_count_lock = Lock()
 
+    logger = Logger(["ALIVE_COUNT"] 
+    )
+
     @staticmethod
     def display_status():
         with Ecosystem.alive_count_lock:
             alive_count = Ecosystem.alive_count
-            Planet.logger.log(f"Organism count: {alive_count}")
+            Ecosystem.logger.log("ALIVE_COUNT", alive_count)
             return alive_count
+        
+    @staticmethod
+    def save_status_history():
+        Ecosystem.logger.to_csv("ecosystem_status.csv")
 
 
 class Organism(ABC):
+    # Override all these static variables
+
     alive_count = None
     alive_count_lock = None
 
@@ -74,7 +81,10 @@ class Organism(ABC):
 
     organism_type = None
 
-    def __init__(self, _inherited=None):
+    status_logger = Logger(["ALIVE_COUNT", "STARVED", "CREATED"])
+    evolve_logger = Logger(list(totals_stats.keys()))
+
+    def __init__(self, _inherited=None, starting_calories=1):
         with Ecosystem.alive_count_lock:
             Ecosystem.alive_count += 1
         with self.__class__.alive_count_lock:
@@ -96,7 +106,7 @@ class Organism(ABC):
                 "CALORIE_USAGE": random.randint(1, 3),
                 "OFFSPRING_CAPACITY": random.randint(0, 3),
             }
-        self.stored_calories = 1
+        self.stored_calories = starting_calories
 
         with self.totals_stats_lock:
             for trait in self.__class__.totals_stats:
@@ -105,12 +115,15 @@ class Organism(ABC):
     @classmethod
     def display_status(cls):
         with cls.alive_count_lock:
-            Planet.logger.log(f"{cls.organism_type} alive count: {cls.alive_count}")
-        Planet.logger.log(f"{cls.organism_type} round changes:")
+            cls.status_logger.log("ALIVE_COUNT", cls.alive_count)
         with cls.starved_in_round_lock:
-            Planet.logger.log(f"    Starved: {cls.starved_in_round}")
+            cls.status_logger.log("STARVED", cls.starved_in_round)
         with cls.created_in_round_lock:
-            Planet.logger.log(f"    Created: {cls.created_in_round}")
+            cls.status_logger.log("CREATED", cls.created_in_round)
+
+    @classmethod
+    def save_status_history(cls):
+        cls.status_logger.to_csv(f"{cls.organism_type}_status.csv")
 
     @classmethod
     def reset_round_status(cls):
@@ -126,15 +139,16 @@ class Organism(ABC):
     @classmethod
     def display_evolution_status(cls):
         with cls.totals_stats_lock:
-            Planet.logger.log(f"--- {cls.organism_type} ---", msg_type="EVOLVE")
             for trait in cls.totals_stats:
                 try:
                     avg = cls.totals_stats[trait] / cls.alive_count
-                    Planet.logger.log(
-                        f"Avg {trait}: {round(avg, 2)}", msg_type="EVOLVE"
-                    )
+                    cls.evolve_logger.log(trait, round(avg, 2))
                 except ZeroDivisionError:
                     break
+
+    @classmethod
+    def save_evolution_history(cls):
+        cls.evolve_logger.to_csv(f"{cls.organism_type}_evolve.csv")
 
     def reproduce(self, mate):
         offspring = []
@@ -156,6 +170,7 @@ class Organism(ABC):
             self.__class__.created_in_round += len(offspring)
         return offspring
 
+    @abstractmethod
     def confront_day(self):
         raise NotImplementedError()
 
@@ -180,11 +195,14 @@ class Prey(Organism):
 
     organism_type = "Prey"
 
+    status_logger = Logger(["ALIVE_COUNT", "STARVED", "CREATED", "EATEN"])
+    evolve_logger = Logger(list(totals_stats.keys()))
+
     @classmethod
-    def display_status(self):
+    def display_status(cls):
         super().display_status()
-        with self.eaten_in_round_lock:
-            Planet.logger.log(f"    Eaten: {self.eaten_in_round}")
+        with cls.eaten_in_round_lock:
+            cls.status_logger.log("EATEN", cls.eaten_in_round)
 
     @classmethod
     def reset_round_status(cls):
@@ -210,6 +228,9 @@ class Prey(Organism):
                 Ecosystem.alive_count -= 1
             with self.__class__.alive_count_lock:
                 self.__class__.alive_count -= 1
+            with self.totals_stats_lock:
+                for trait in self.__class__.totals_stats:
+                    self.__class__.totals_stats[trait] -= self.inherited[trait]
 
         return still_alive
 
@@ -248,5 +269,9 @@ class Predator(Organism):
                 Ecosystem.alive_count -= 1
             with self.__class__.alive_count_lock:
                 self.__class__.alive_count -= 1
+            with self.totals_stats_lock:
+                for trait in self.__class__.totals_stats:
+                    self.__class__.totals_stats[trait] -= self.inherited[trait]
+            return False
         else:
             return True
