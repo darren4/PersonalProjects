@@ -22,8 +22,8 @@ class Logger:
         for trait in self.data:
             lens.append(len(self.data[trait]))
         for i in range(1, len(lens)):
-            assert lens[i] == lens[i-1]
-        df=pd.DataFrame.from_dict(self.data,orient='index').transpose()
+            assert lens[i] == lens[i - 1]
+        df = pd.DataFrame.from_dict(self.data, orient="index").transpose()
         df.to_csv(filename)
 
 
@@ -46,8 +46,7 @@ class Ecosystem:
     alive_count = 0
     alive_count_lock = Lock()
 
-    logger = Logger(["ALIVE_COUNT"] 
-    )
+    logger = Logger(["ALIVE_COUNT"])
 
     @staticmethod
     def display_status():
@@ -55,7 +54,7 @@ class Ecosystem:
             alive_count = Ecosystem.alive_count
             Ecosystem.logger.log("ALIVE_COUNT", alive_count)
             return alive_count
-        
+
     @staticmethod
     def save_status_history():
         Ecosystem.logger.to_csv("ecosystem_status.csv")

@@ -1,4 +1,5 @@
 from components import Planet, Ecosystem, Prey, Predator
+from constants import *
 
 import random
 from threading import Lock, Thread
@@ -36,12 +37,12 @@ def new_position(ri, ci, grid_shape):
 
 
 def apply_position(target, source):
-    target["PREDATORS"].clear()
-    target["PREY"].clear()
-    for predator in source["PREDATORS"]:
-        target["PREDATORS"].append(predator)
-    for prey in source["PREY"]:
-        target["PREY"].append(prey)
+    target[PREDATORS].clear()
+    target[PREY].clear()
+    for predator in source[PREDATORS]:
+        target[PREDATORS].append(predator)
+    for prey in source[PREY]:
+        target[PREY].append(prey)
 
 
 def get_survivors(prey, predators, food):
@@ -51,9 +52,9 @@ def get_survivors(prey, predators, food):
     for i in range(end_confront_idx):
         current_prey = prey[i]
         current_predator = predators[i]
-        if current_prey.confront_day(current_predator.inherited["STRENGTH"], food):
+        if current_prey.confront_day(current_predator.inherited[STRENGTH], food):
             surviving_prey.append(current_prey)
-        if current_predator.confront_day(current_prey.inherited["STRENGTH"]):
+        if current_predator.confront_day(current_prey.inherited[STRENGTH]):
             surviving_predators.append(current_predator)
 
     for i in range(end_confront_idx, len(prey)):
@@ -87,14 +88,14 @@ def reproduce(parents):
 def process_position(ri, ci, day_count):
     for day_num in range(day_count):
         with Planet.worker_state_lock:
-            while Planet.worker_state != "PROCESS":
+            while Planet.worker_state != PROCESS:
                 Planet.worker_state_cv.wait()
 
-        with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
+        with Planet.grid[ri][ci][0][POSITION_LOCK]:
             surviving_prey, surviving_predators = get_survivors(
-                Planet.grid[ri][ci][0]["PREY"],
-                Planet.grid[ri][ci][0]["PREDATORS"],
-                Planet.grid[ri][ci][0]["FOOD"],
+                Planet.grid[ri][ci][0][PREY],
+                Planet.grid[ri][ci][0][PREDATORS],
+                Planet.grid[ri][ci][0][FOOD],
             )
 
             next_prey = reproduce(surviving_prey)
@@ -102,12 +103,12 @@ def process_position(ri, ci, day_count):
 
             for prey in next_prey:
                 new_ri, new_ci = new_position(ri, ci, Planet.grid_shape)
-                with Planet.grid[new_ri][new_ci][1]["POSITION_LOCK"]:
-                    Planet.grid[new_ri][new_ci][1]["PREY"].append(prey)
+                with Planet.grid[new_ri][new_ci][1][POSITION_LOCK]:
+                    Planet.grid[new_ri][new_ci][1][PREY].append(prey)
             for predator in next_predators:
                 new_ri, new_ci = new_position(ri, ci, Planet.grid_shape)
-                with Planet.grid[new_ri][new_ci][1]["POSITION_LOCK"]:
-                    Planet.grid[new_ri][new_ci][1]["PREDATORS"].append(predator)
+                with Planet.grid[new_ri][new_ci][1][POSITION_LOCK]:
+                    Planet.grid[new_ri][new_ci][1][PREDATORS].append(predator)
 
         with Planet.ready_lock:
             Planet.ready += 1
@@ -118,29 +119,29 @@ def process_position(ri, ci, day_count):
                 Predator.display_status()
                 with Planet.worker_state_lock:
                     if ecosystem_alive:
-                        Planet.worker_state = "TRANSITION"
+                        Planet.worker_state = TRANSITION
                         Prey.display_evolution_status()
                         Prey.reset_round_status()
                         Predator.display_evolution_status()
                         Predator.reset_round_status()
                     else:
-                        Planet.worker_state = "DONE"
+                        Planet.worker_state = DONE
                     Planet.worker_state_cv.notify_all()
 
         with Planet.worker_state_lock:
-            while Planet.worker_state == "PROCESS":
+            while Planet.worker_state == PROCESS:
                 Planet.worker_state_cv.wait()
-            if Planet.worker_state == "DONE":
+            if Planet.worker_state == DONE:
                 return
 
-        with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
-            with Planet.grid[ri][ci][1]["POSITION_LOCK"]:
+        with Planet.grid[ri][ci][0][POSITION_LOCK]:
+            with Planet.grid[ri][ci][1][POSITION_LOCK]:
                 apply_position(Planet.grid[ri][ci][0], Planet.grid[ri][ci][1])
                 apply_position(
                     Planet.grid[ri][ci][1],
                     {
-                        "PREDATORS": [],
-                        "PREY": [],
+                        PREDATORS: [],
+                        PREY: [],
                     },
                 )
 
@@ -149,7 +150,7 @@ def process_position(ri, ci, day_count):
             if Planet.ready == Planet.worker_count:
                 Planet.ready = 0
                 with Planet.worker_state_lock:
-                    Planet.worker_state = "PROCESS"
+                    Planet.worker_state = PROCESS
                     Planet.worker_state_cv.notify_all()
 
 
@@ -168,16 +169,16 @@ def run_simulation():
             Planet.grid[-1].append(
                 (
                     {
-                        "PREDATORS": [],
-                        "PREY": [],
-                        "FOOD": 0,
-                        "POSITION_LOCK": Lock(),
+                        PREDATORS: [],
+                        PREY: [],
+                        FOOD: 0,
+                        POSITION_LOCK: Lock(),
                     },
                     {
-                        "PREDATORS": [],
-                        "PREY": [],
-                        "FOOD": 0,
-                        "POSITION_LOCK": Lock(),
+                        PREDATORS: [],
+                        PREY: [],
+                        FOOD: 0,
+                        POSITION_LOCK: Lock(),
                     },
                 )
             )
@@ -186,37 +187,37 @@ def run_simulation():
         ri, ci = random.randint(0, Planet.grid_shape[0] - 1), random.randint(
             0, Planet.grid_shape[1] - 1
         )
-        with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
-            Planet.grid[ri][ci][0]["FOOD"] += 1
-            Planet.grid[ri][ci][1]["FOOD"] += 1
+        with Planet.grid[ri][ci][0][POSITION_LOCK]:
+            Planet.grid[ri][ci][0][FOOD] += 1
+            Planet.grid[ri][ci][1][FOOD] += 1
 
     for _ in range(start_predator_count):
         ri, ci = random.randint(0, Planet.grid_shape[0] - 1), random.randint(
             0, Planet.grid_shape[1] - 1
         )
-        with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
+        with Planet.grid[ri][ci][0][POSITION_LOCK]:
             predator = Predator(
                 _inherited={
-                    "STRENGTH": random.randint(0, 4),
-                    "OFFSPRING_CAPACITY": 4,
-                    "CALORIE_USAGE": 1,
-                }, starting_calories=5
+                    STRENGTH: random.randint(3, 6),
+                    OFFSPRING_CAPACITY: 4,
+                    CALORIE_USAGE: 1,
+                }
             )
-            Planet.grid[ri][ci][0]["PREDATORS"].append(predator)
+            Planet.grid[ri][ci][0][PREDATORS].append(predator)
 
     for _ in range(start_prey_count):
         ri, ci = random.randint(0, Planet.grid_shape[0] - 1), random.randint(
             0, Planet.grid_shape[1] - 1
         )
-        with Planet.grid[ri][ci][0]["POSITION_LOCK"]:
+        with Planet.grid[ri][ci][0][POSITION_LOCK]:
             prey = Prey(
                 _inherited={
-                    "STRENGTH": random.randint(0, 5),
-                    "OFFSPRING_CAPACITY": 4,
-                    "CALORIE_USAGE": 0,
+                    STRENGTH: random.randint(0, 5),
+                    OFFSPRING_CAPACITY: 4,
+                    CALORIE_USAGE: 0,
                 }
             )
-            Planet.grid[ri][ci][0]["PREY"].append(prey)
+            Planet.grid[ri][ci][0][PREY].append(prey)
 
     Planet.worker_count = Planet.grid_shape[0] * Planet.grid_shape[1]
 
@@ -239,6 +240,7 @@ def run_simulation():
     Predator.save_status_history()
     Prey.save_evolution_history()
     Predator.save_evolution_history()
+
 
 if __name__ == "__main__":
     run_simulation()
