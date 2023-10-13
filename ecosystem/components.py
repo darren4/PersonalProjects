@@ -1,3 +1,5 @@
+from ecosystem.constants import *
+
 import random
 from threading import Lock, Condition
 from abc import ABC, abstractmethod
@@ -24,7 +26,7 @@ class Logger:
         for i in range(1, len(lens)):
             assert lens[i] == lens[i - 1]
         df = pd.DataFrame.from_dict(self.data, orient="index").transpose()
-        df.to_csv(filename)
+        df.to_csv(f"ecosystem/{filename}")
 
 
 class Planet:
@@ -37,7 +39,7 @@ class Planet:
     worker_count = None
 
     # PROCESS, TRANSITION, DONE
-    worker_state = "PROCESS"
+    worker_state = PROCESS
     worker_state_lock = Lock()
     worker_state_cv = Condition(worker_state_lock)
 
@@ -46,13 +48,13 @@ class Ecosystem:
     alive_count = 0
     alive_count_lock = Lock()
 
-    logger = Logger(["ALIVE_COUNT"])
+    logger = Logger([ALIVE_COUNT])
 
     @staticmethod
     def display_status():
         with Ecosystem.alive_count_lock:
             alive_count = Ecosystem.alive_count
-            Ecosystem.logger.log("ALIVE_COUNT", alive_count)
+            Ecosystem.logger.log(ALIVE_COUNT, alive_count)
             return alive_count
 
     @staticmethod
@@ -72,15 +74,15 @@ class Organism(ABC):
     created_in_round_lock = None
 
     totals_stats = {
-        "STRENGTH": None,
-        "CALORIE_USAGE": None,
-        "OFFSPRING_CAPACITY": None,
+        STRENGTH: None,
+        CALORIE_USAGE: None,
+        OFFSPRING_CAPACITY: None,
     }
     totals_stats_lock = None
 
     organism_type = None
 
-    status_logger = Logger(["ALIVE_COUNT", "STARVED", "CREATED"])
+    status_logger = Logger([ALIVE_COUNT, STARVED, CREATED])
     evolve_logger = Logger(list(totals_stats.keys()))
 
     def __init__(self, _inherited=None, starting_calories=1):
@@ -91,9 +93,9 @@ class Organism(ABC):
 
         if _inherited:
             if set(_inherited.keys()) != {
-                "STRENGTH",
-                "CALORIE_USAGE",
-                "OFFSPRING_CAPACITY",
+                STRENGTH,
+                CALORIE_USAGE,
+                OFFSPRING_CAPACITY,
             }:
                 raise ValueError(
                     f"Inherited traits have invalid keys: {list(_inherited.keys())}"
@@ -101,9 +103,9 @@ class Organism(ABC):
             self.inherited = _inherited
         else:
             self.inherited = {
-                "STRENGTH": random.randint(0, 10),
-                "CALORIE_USAGE": random.randint(1, 3),
-                "OFFSPRING_CAPACITY": random.randint(0, 3),
+                STRENGTH: random.randint(0, 10),
+                CALORIE_USAGE: random.randint(1, 3),
+                OFFSPRING_CAPACITY: random.randint(0, 3),
             }
         self.stored_calories = starting_calories
 
@@ -114,11 +116,11 @@ class Organism(ABC):
     @classmethod
     def display_status(cls):
         with cls.alive_count_lock:
-            cls.status_logger.log("ALIVE_COUNT", cls.alive_count)
+            cls.status_logger.log(ALIVE_COUNT, cls.alive_count)
         with cls.starved_in_round_lock:
-            cls.status_logger.log("STARVED", cls.starved_in_round)
+            cls.status_logger.log(STARVED, cls.starved_in_round)
         with cls.created_in_round_lock:
-            cls.status_logger.log("CREATED", cls.created_in_round)
+            cls.status_logger.log(CREATED, cls.created_in_round)
 
     @classmethod
     def save_status_history(cls):
@@ -153,8 +155,8 @@ class Organism(ABC):
         offspring = []
         for _ in range(
             min(
-                self.inherited["OFFSPRING_CAPACITY"],
-                mate.inherited["OFFSPRING_CAPACITY"],
+                self.inherited[OFFSPRING_CAPACITY],
+                mate.inherited[OFFSPRING_CAPACITY],
             )
         ):
             new_traits = {}
@@ -186,22 +188,22 @@ class Prey(Organism):
     created_in_round_lock = Lock()
 
     totals_stats = {
-        "STRENGTH": 0,
-        "CALORIE_USAGE": 0,
-        "OFFSPRING_CAPACITY": 0,
+        STRENGTH: 0,
+        CALORIE_USAGE: 0,
+        OFFSPRING_CAPACITY: 0,
     }
     totals_stats_lock = Lock()
 
     organism_type = "Prey"
 
-    status_logger = Logger(["ALIVE_COUNT", "STARVED", "CREATED", "EATEN"])
+    status_logger = Logger([ALIVE_COUNT, STARVED, CREATED, EATEN])
     evolve_logger = Logger(list(totals_stats.keys()))
 
     @classmethod
     def display_status(cls):
         super().display_status()
         with cls.eaten_in_round_lock:
-            cls.status_logger.log("EATEN", cls.eaten_in_round)
+            cls.status_logger.log(EATEN, cls.eaten_in_round)
 
     @classmethod
     def reset_round_status(cls):
@@ -211,12 +213,12 @@ class Prey(Organism):
 
     def confront_day(self, predator_strength=0, eat=0) -> bool:
         still_alive = True
-        if self.inherited["STRENGTH"] < predator_strength:
+        if self.inherited[STRENGTH] < predator_strength:
             still_alive = False
             with self.__class__.eaten_in_round_lock:
                 self.__class__.eaten_in_round += 1
 
-        self.stored_calories += eat - self.inherited["CALORIE_USAGE"]
+        self.stored_calories += eat - self.inherited[CALORIE_USAGE]
         if self.stored_calories <= 0:
             still_alive = False
             with self.__class__.starved_in_round_lock:
@@ -246,9 +248,9 @@ class Predator(Organism):
     created_in_round_lock = Lock()
 
     totals_stats = {
-        "STRENGTH": 0,
-        "CALORIE_USAGE": 0,
-        "OFFSPRING_CAPACITY": 0,
+        STRENGTH: 0,
+        CALORIE_USAGE: 0,
+        OFFSPRING_CAPACITY: 0,
     }
     totals_stats_lock = Lock()
 
@@ -256,10 +258,10 @@ class Predator(Organism):
 
     def confront_day(self, prey_strength) -> bool:
         food_amount = 0
-        if not math.isnan(prey_strength) and self.inherited["STRENGTH"] > prey_strength:
+        if not math.isnan(prey_strength) and self.inherited[STRENGTH] > prey_strength:
             food_amount = 1
 
-        self.stored_calories += food_amount - self.inherited["CALORIE_USAGE"]
+        self.stored_calories += food_amount - self.inherited[CALORIE_USAGE]
         if self.stored_calories <= 0:
             with self.__class__.starved_in_round_lock:
                 self.__class__.starved_in_round += 1
