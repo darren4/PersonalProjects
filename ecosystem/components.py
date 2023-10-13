@@ -157,9 +157,13 @@ class Organism(ABC):
             self.inherited[OFFSPRING_CAPACITY],
             mate.inherited[OFFSPRING_CAPACITY],
         )
-        starting_calories = (
-            self.stored_calories + mate.stored_calories
-        ) / offspring_capacity
+        starting_calories = (self.stored_calories + mate.stored_calories) / (
+            offspring_capacity + 2
+        )
+        self.stored_calories, mate.stored_calories = (
+            starting_calories,
+            starting_calories,
+        )
         for _ in range(offspring_capacity):
             new_traits = {}
             for trait, value in self.inherited.items():
@@ -213,14 +217,14 @@ class Prey(Organism):
         with cls.eaten_in_round_lock:
             cls.eaten_in_round = 0
 
-    def confront_day(self, predator_strength=0, eat=0) -> bool:
+    def confront_day(self, predator_strength=0, food_amount=0) -> bool:
         still_alive = True
         if self.inherited[STRENGTH] < predator_strength:
             still_alive = False
             with self.__class__.eaten_in_round_lock:
                 self.__class__.eaten_in_round += 1
 
-        self.stored_calories += eat - self.inherited[CALORIE_USAGE]
+        self.stored_calories += food_amount - self.inherited[CALORIE_USAGE]
         if self.stored_calories <= 0:
             still_alive = False
             with self.__class__.starved_in_round_lock:
@@ -258,10 +262,10 @@ class Predator(Organism):
 
     organism_type = "Predator"
 
-    def confront_day(self, prey_strength) -> bool:
+    def confront_day(self, prey_strength, prey_calories=0) -> bool:
         food_amount = 0
         if not math.isnan(prey_strength) and self.inherited[STRENGTH] > prey_strength:
-            food_amount = 1
+            food_amount = prey_calories
 
         self.stored_calories += food_amount - self.inherited[CALORIE_USAGE]
         if self.stored_calories <= 0:
