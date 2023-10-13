@@ -54,7 +54,9 @@ def get_survivors(prey, predators, food):
         current_predator = predators[i]
         if current_prey.confront_day(current_predator.inherited[STRENGTH], food):
             surviving_prey.append(current_prey)
-        if current_predator.confront_day(current_prey.inherited[STRENGTH]):
+        if current_predator.confront_day(
+            current_prey.inherited[STRENGTH], current_prey.stored_calories
+        ):
             surviving_predators.append(current_predator)
 
     for i in range(end_confront_idx, len(prey)):
@@ -63,7 +65,7 @@ def get_survivors(prey, predators, food):
             surviving_prey.append(current_prey)
     for i in range(end_confront_idx, len(predators)):
         current_predator = predators[i]
-        if current_predator.confront_day(float("nan")):
+        if current_predator.confront_day(float("nan"), 0):
             surviving_predators.append(current_predator)
     return surviving_prey, surviving_predators
 
@@ -83,6 +85,26 @@ def reproduce(parents):
             offspring = left_parent.reproduce(right_parent)
             parents_and_offspring.extend(offspring)
     return parents_and_offspring
+
+
+def display_ecosystem_status(day_num):
+    ecosystem_alive = Ecosystem.display_status() > 0
+    Prey.display_status()
+    Predator.display_status()
+
+    Prey.display_evolution_status()
+    Prey.reset_round_status()
+    Predator.display_evolution_status()
+    Predator.reset_round_status()
+
+    if day_num % 10 == 0:
+        Ecosystem.save_status_history()
+        Prey.save_status_history()
+        Predator.save_status_history()
+        Prey.save_evolution_history()
+        Predator.save_evolution_history()
+
+    return ecosystem_alive
 
 
 def process_position(ri, ci, day_count):
@@ -113,17 +135,12 @@ def process_position(ri, ci, day_count):
         with Planet.ready_lock:
             Planet.ready += 1
             if Planet.ready == Planet.worker_count:
+                # Single threaded
                 Planet.ready = 0
-                ecosystem_alive = Ecosystem.display_status() > 0
-                Prey.display_status()
-                Predator.display_status()
+                ecosystem_alive = display_ecosystem_status(day_num)
                 with Planet.worker_state_lock:
                     if ecosystem_alive:
                         Planet.worker_state = TRANSITION
-                        Prey.display_evolution_status()
-                        Prey.reset_round_status()
-                        Predator.display_evolution_status()
-                        Predator.reset_round_status()
                     else:
                         Planet.worker_state = DONE
                     Planet.worker_state_cv.notify_all()
@@ -148,6 +165,7 @@ def process_position(ri, ci, day_count):
         with Planet.ready_lock:
             Planet.ready += 1
             if Planet.ready == Planet.worker_count:
+                # Single threaded
                 Planet.ready = 0
                 with Planet.worker_state_lock:
                     Planet.worker_state = PROCESS
@@ -156,21 +174,29 @@ def process_position(ri, ci, day_count):
 
 def run_simulation():
     # Potential user inputs
-    Planet.grid_shape = (10, 10)
-    start_predator_count = 20  # can replace with predator types
-    start_prey_count = 20  # can replace with prey types
-    start_food_source_count = 100  # can replace with food amounts/positions
-    day_count = 10
-    prey_start_traits = {
-        STRENGTH: random.randint(0, 5),
-        OFFSPRING_CAPACITY: 4,
-        CALORIE_USAGE: 1,
-    }
-    predator_start_traits = {
-        STRENGTH: random.randint(3, 6),
-        OFFSPRING_CAPACITY: 4,
-        CALORIE_USAGE: 0.25,
-    }
+    Planet.grid_shape = (15, 15)
+    start_predator_count = 45
+    start_prey_count = 45
+    start_food_source_count = 225
+    day_count = 50
+
+    def get_prey_starting_traits():
+        return {
+            STRENGTH: random.randint(0, 5),
+            OFFSPRING_CAPACITY: random.randint(0, 4),
+            CALORIE_USAGE: random.randint(1, 2),
+        }
+
+    prey_starting_calories = 5
+
+    def get_predator_starting_traits():
+        return {
+            STRENGTH: random.randint(3, 6),
+            OFFSPRING_CAPACITY: random.randint(0, 4),
+            CALORIE_USAGE: random.random(),
+        }
+
+    predator_starting_calories = 1
 
     Planet.grid = []
     for ri in range(Planet.grid_shape[0]):
@@ -201,21 +227,27 @@ def run_simulation():
             Planet.grid[ri][ci][0][FOOD] += 1
             Planet.grid[ri][ci][1][FOOD] += 1
 
-    for _ in range(start_predator_count):
-        ri, ci = random.randint(0, Planet.grid_shape[0] - 1), random.randint(
-            0, Planet.grid_shape[1] - 1
-        )
-        with Planet.grid[ri][ci][0][POSITION_LOCK]:
-            predator = Predator(_inherited=predator_start_traits)
-            Planet.grid[ri][ci][0][PREDATORS].append(predator)
-
     for _ in range(start_prey_count):
         ri, ci = random.randint(0, Planet.grid_shape[0] - 1), random.randint(
             0, Planet.grid_shape[1] - 1
         )
         with Planet.grid[ri][ci][0][POSITION_LOCK]:
-            prey = Prey(_inherited=prey_start_traits)
+            prey = Prey(
+                _inherited=get_prey_starting_traits(),
+                starting_calories=prey_starting_calories,
+            )
             Planet.grid[ri][ci][0][PREY].append(prey)
+
+    for _ in range(start_predator_count):
+        ri, ci = random.randint(0, Planet.grid_shape[0] - 1), random.randint(
+            0, Planet.grid_shape[1] - 1
+        )
+        with Planet.grid[ri][ci][0][POSITION_LOCK]:
+            predator = Predator(
+                _inherited=get_predator_starting_traits(),
+                starting_calories=predator_starting_calories,
+            )
+            Planet.grid[ri][ci][0][PREDATORS].append(predator)
 
     Planet.worker_count = Planet.grid_shape[0] * Planet.grid_shape[1]
 
@@ -233,11 +265,12 @@ def run_simulation():
             threads.append(t)
     for thread in threads:
         thread.join()
-    Ecosystem.save_status_history()
-    Prey.save_status_history()
-    Predator.save_status_history()
-    Prey.save_evolution_history()
-    Predator.save_evolution_history()
+    # Ecosystem.save_status_history()
+    # Prey.save_status_history()
+    # Predator.save_status_history()
+    # Prey.save_evolution_history()
+    # Predator.save_evolution_history()
+    print("Done")
 
 
 if __name__ == "__main__":
