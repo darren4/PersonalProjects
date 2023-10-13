@@ -134,10 +134,6 @@ class Organism(ABC):
             cls.created_in_round = 0
 
     @classmethod
-    def create_child(cls, new_traits):
-        return cls(new_traits)
-
-    @classmethod
     def display_evolution_status(cls):
         with cls.totals_stats_lock:
             for trait in cls.totals_stats:
@@ -150,6 +146,10 @@ class Organism(ABC):
     @classmethod
     def save_evolution_history(cls):
         cls.evolve_logger.to_csv(f"{cls.organism_type}_evolve.csv")
+
+    @classmethod
+    def create_child(cls, new_traits, starting_calories):
+        return cls(new_traits, starting_calories)
 
     def reproduce(self, mate):
         offspring = []
@@ -165,7 +165,8 @@ class Organism(ABC):
                     new_traits[trait] = value
                 else:
                     new_traits[trait] = mate.inherited[trait]
-            offspring.append(self.create_child(new_traits))
+            starting_calories = min(self.stored_calories, mate.stored_calories)
+            offspring.append(self.create_child(new_traits, starting_calories))
 
         with self.__class__.created_in_round_lock:
             self.__class__.created_in_round += len(offspring)

@@ -156,11 +156,21 @@ def process_position(ri, ci, day_count):
 
 def run_simulation():
     # Potential user inputs
-    Planet.grid_shape = (3, 3)
-    start_predator_count = 5  # can replace with predator types
-    start_prey_count = 5  # can replace with prey types
-    start_food_source_count = 0  # can replace with food amounts/positions
+    Planet.grid_shape = (10, 10)
+    start_predator_count = 20  # can replace with predator types
+    start_prey_count = 20  # can replace with prey types
+    start_food_source_count = 100  # can replace with food amounts/positions
     day_count = 10
+    prey_start_traits = {
+        STRENGTH: random.randint(0, 5),
+        OFFSPRING_CAPACITY: 4,
+        CALORIE_USAGE: 1,
+    }
+    predator_start_traits = {
+        STRENGTH: random.randint(3, 6),
+        OFFSPRING_CAPACITY: 4,
+        CALORIE_USAGE: 0.25,
+    }
 
     Planet.grid = []
     for ri in range(Planet.grid_shape[0]):
@@ -196,13 +206,7 @@ def run_simulation():
             0, Planet.grid_shape[1] - 1
         )
         with Planet.grid[ri][ci][0][POSITION_LOCK]:
-            predator = Predator(
-                _inherited={
-                    STRENGTH: random.randint(3, 6),
-                    OFFSPRING_CAPACITY: 4,
-                    CALORIE_USAGE: 1,
-                }
-            )
+            predator = Predator(_inherited=predator_start_traits)
             Planet.grid[ri][ci][0][PREDATORS].append(predator)
 
     for _ in range(start_prey_count):
@@ -210,13 +214,7 @@ def run_simulation():
             0, Planet.grid_shape[1] - 1
         )
         with Planet.grid[ri][ci][0][POSITION_LOCK]:
-            prey = Prey(
-                _inherited={
-                    STRENGTH: random.randint(0, 5),
-                    OFFSPRING_CAPACITY: 4,
-                    CALORIE_USAGE: 0,
-                }
-            )
+            prey = Prey(_inherited=prey_start_traits)
             Planet.grid[ri][ci][0][PREY].append(prey)
 
     Planet.worker_count = Planet.grid_shape[0] * Planet.grid_shape[1]
