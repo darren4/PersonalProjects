@@ -153,19 +153,20 @@ class Organism(ABC):
 
     def reproduce(self, mate):
         offspring = []
-        for _ in range(
-            min(
-                self.inherited[OFFSPRING_CAPACITY],
-                mate.inherited[OFFSPRING_CAPACITY],
-            )
-        ):
+        offspring_capacity = min(
+            self.inherited[OFFSPRING_CAPACITY],
+            mate.inherited[OFFSPRING_CAPACITY],
+        )
+        starting_calories = (
+            self.stored_calories + mate.stored_calories
+        ) / offspring_capacity
+        for _ in range(offspring_capacity):
             new_traits = {}
             for trait, value in self.inherited.items():
                 if random.randint(0, 1):
                     new_traits[trait] = value
                 else:
                     new_traits[trait] = mate.inherited[trait]
-            starting_calories = min(self.stored_calories, mate.stored_calories)
             offspring.append(self.create_child(new_traits, starting_calories))
 
         with self.__class__.created_in_round_lock:
