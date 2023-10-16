@@ -45,28 +45,51 @@ def apply_position(target, source):
         target[PREY].append(prey)
 
 
+"""
+    prey_to_predator = int(len(prey) / len(predators))
+    predator_idx = 0
+    for prey_idx in range(0, prey_to_predator, len(prey)):
+        prey_survive_predator, 
+        predator_idx += 1
+"""
+
+
 def get_survivors(prey, predators, food):
+    random.shuffle(prey)
+    random.shuffle(predators)
+
+    prey_count = len(prey)
+    predator_count = len(predators)
+
     surviving_prey = []
     surviving_predators = []
-    end_confront_idx = min(len(prey), len(predators))
-    for i in range(end_confront_idx):
-        current_prey = prey[i]
-        current_predator = predators[i]
-        if current_prey.confront_day(current_predator.inherited[STRENGTH], food):
-            surviving_prey.append(current_prey)
-        if current_predator.confront_day(
-            current_prey.inherited[STRENGTH], current_prey.stored_calories
-        ):
-            surviving_predators.append(current_predator)
 
-    for i in range(end_confront_idx, len(prey)):
-        current_prey = prey[i]
-        if current_prey.confront_day(0, food):
-            surviving_prey.append(current_prey)
-    for i in range(end_confront_idx, len(predators)):
-        current_predator = predators[i]
-        if current_predator.confront_day(float("nan"), 0):
-            surviving_predators.append(current_predator)
+    if predator_count > 0:
+        predators_to_prey = []
+        for i in range(predator_count):
+            predators_to_prey.append((predators[i], []))
+        if prey_count <= predator_count:
+            for i in range(prey_count):
+                predators_to_prey[i][1].append(prey[i])
+        else:
+            predator_idx = 0
+            for prey_idx in range(prey_count):
+                if predator_idx == predator_count:
+                    predator_idx = 0
+
+                predators_to_prey[predator_idx][1].append(prey[prey_idx])
+                predator_idx += 1
+
+        for predator, victims in predators_to_prey:
+            predator.eat_for_day(victims)
+            if predator.still_alive():
+                surviving_predators.append(predator)
+
+    for one_prey in prey:
+        if one_prey.still_alive():
+            one_prey.eat_for_day([food])
+            if one_prey.still_alive():
+                surviving_prey.append(one_prey)
     return surviving_prey, surviving_predators
 
 
@@ -193,7 +216,7 @@ def run_simulation():
         return {
             STRENGTH: random.randint(3, 6),
             OFFSPRING_CAPACITY: random.randint(0, 4),
-            CALORIE_USAGE: random.random(),
+            CALORIE_USAGE: random.uniform(0, 0.5),
         }
 
     predator_starting_calories = 1
