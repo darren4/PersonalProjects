@@ -3,7 +3,6 @@ from ecosystem.constants import *
 import random
 from threading import Lock, Condition
 from abc import ABC, abstractmethod
-import math
 import pandas as pd
 
 
@@ -227,34 +226,25 @@ class Prey(Organism):
             cls.eaten_in_round = 0
 
     def eat_for_day(self, food_list):
-        self.stored_calories -= self.inherited[CALORIE_USAGE]
-        for food in food_list:
-            self.stored_calories += food
-        self.alive = self.stored_calories > 0
-
-    # def confront_day(self, predator_strength=0, food_amount=0) -> bool:
-    #     still_alive = True
-    #     if self.inherited[STRENGTH] < predator_strength:
-    #         still_alive = False
-    #         with self.__class__.eaten_in_round_lock:
-    #             self.__class__.eaten_in_round += 1
-
-    #     self.stored_calories += food_amount - self.inherited[CALORIE_USAGE]
-    #     if self.stored_calories <= 0:
-    #         still_alive = False
-    #         with self.__class__.starved_in_round_lock:
-    #             self.__class__.starved_in_round += 1
-
-    #     if not still_alive:
-    #         with Ecosystem.alive_count_lock:
-    #             Ecosystem.alive_count -= 1
-    #         with self.__class__.alive_count_lock:
-    #             self.__class__.alive_count -= 1
-    #         with self.totals_stats_lock:
-    #             for trait in self.__class__.totals_stats:
-    #                 self.__class__.totals_stats[trait] -= self.inherited[trait]
-
-    #     return still_alive
+        if not self.alive:
+            with self.__class__.eaten_in_round_lock:
+                self.__class__.eaten_in_round += 1
+        else:
+            self.stored_calories -= self.inherited[CALORIE_USAGE]
+            for food in food_list:
+                self.stored_calories += food
+            self.alive = self.stored_calories > 0
+            if not self.alive:
+                with self.__class__.starved_in_round_lock:
+                    self.__class__.starved_in_round += 1
+        if not self.alive:
+            with Ecosystem.alive_count_lock:
+                Ecosystem.alive_count -= 1
+            with self.__class__.alive_count_lock:
+                self.__class__.alive_count -= 1
+            with self.totals_stats_lock:
+                for trait in self.__class__.totals_stats:
+                    self.__class__.totals_stats[trait] -= self.inherited[trait]
 
 
 class Predator(Organism):
@@ -282,8 +272,18 @@ class Predator(Organism):
         for prey in prey_list:
             if self.inherited[STRENGTH] > prey.inherited[STRENGTH]:
                 prey.alive = False
-                self.stored_calories += prey.stored_calories * 0.1
+                self.stored_calories += prey.stored_calories
         self.alive = self.stored_calories > 0
+        if not self.alive:
+            with self.__class__.starved_in_round_lock:
+                self.__class__.starved_in_round += 1
+            with Ecosystem.alive_count_lock:
+                Ecosystem.alive_count -= 1
+            with self.__class__.alive_count_lock:
+                self.__class__.alive_count -= 1
+            with self.totals_stats_lock:
+                for trait in self.__class__.totals_stats:
+                    self.__class__.totals_stats[trait] -= self.inherited[trait]
 
     # def confront_day(self, prey_strength, prey_calories=0) -> bool:
     #     food_amount = 0

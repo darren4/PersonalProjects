@@ -45,15 +45,6 @@ def apply_position(target, source):
         target[PREY].append(prey)
 
 
-"""
-    prey_to_predator = int(len(prey) / len(predators))
-    predator_idx = 0
-    for prey_idx in range(0, prey_to_predator, len(prey)):
-        prey_survive_predator, 
-        predator_idx += 1
-"""
-
-
 def get_survivors(prey, predators, food):
     random.shuffle(prey)
     random.shuffle(predators)
@@ -201,7 +192,7 @@ def run_simulation():
     start_predator_count = 45
     start_prey_count = 45
     start_food_source_count = 225
-    day_count = 50
+    day_count = 150
 
     def get_prey_starting_traits():
         return {
@@ -214,9 +205,9 @@ def run_simulation():
 
     def get_predator_starting_traits():
         return {
-            STRENGTH: random.randint(3, 6),
+            STRENGTH: random.randint(3, 7),
             OFFSPRING_CAPACITY: random.randint(0, 4),
-            CALORIE_USAGE: random.uniform(0, 0.5),
+            CALORIE_USAGE: random.uniform(0, 0.25),
         }
 
     predator_starting_calories = 1
