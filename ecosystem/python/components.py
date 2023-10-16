@@ -1,4 +1,4 @@
-from ecosystem.constants import *
+from constants import *
 
 import random
 from threading import Lock, Condition
@@ -25,7 +25,7 @@ class Logger:
         for i in range(1, len(lens)):
             assert lens[i] == lens[i - 1]
         df = pd.DataFrame.from_dict(self.data, orient="index").transpose()
-        df.to_csv(f"ecosystem/{filename}")
+        df.to_csv(f"ecosystem/status/{filename}")
 
 
 class Planet:
