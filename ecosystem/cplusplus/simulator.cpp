@@ -1,26 +1,49 @@
 #include "organisms.h"
+#include "planet.h"
+#include "random_numbers.h"
+#include "simulation_parameters.h"
 
 #include <vector>
 #include <iostream>
 #include <cstdlib>
 
 using std::cout;
+typedef unsigned int uint;
 
 
 void run_simulation(){
-    cout << "Starting simulation\n";
+    cout << "Initializing simulation\n";
     srand(0);
 
-    Planet.grid_height = 15;
-    Planet.grid_width = 15;
-    start_predator_count = 45;
-    start_prey_count = 45;
-    start_food_source_count = 225;
-    day_count = 150;
+    Planet planet(PLANET_GRID_HEIGHT, PLANET_GRID_WIDTH);
 
-    prey_starting_calories = 5;
-    predator_starting_calories = 1;
+    for (uint i = 0; i < START_FOOD_SOURCE_COUNT; ++i) {
+        uint row = random_int(0, PLANET_GRID_HEIGHT - 1);
+        uint col = random_int(0, PLANET_GRID_WIDTH - 1);
+        PlanetPositionAccess write_current = planet.write_current(row, col);
+        write_current.ref.food += 1;
+        PlanetPositionAccess write_next = planet.write_next(row, col);
+        write_next.ref.food += 1;
+    }
 
+    for (uint i = 0; i < START_PREY_COUNT; ++i){
+        uint row = random_int(0, PLANET_GRID_HEIGHT - 1);
+        uint col = random_int(0, PLANET_GRID_WIDTH - 1);
+        PlanetPositionAccess write_current = planet.write_current(row, col);
+        Prey prey;
+        write_current.ref.prey.push_back(prey);
+    }
+
+    for (uint i = 0; i < START_PREDATOR_COUNT; ++i){
+        uint row = random_int(0, PLANET_GRID_HEIGHT - 1);
+        uint col = random_int(0, PLANET_GRID_WIDTH - 1);
+        PlanetPositionAccess write_current = planet.write_current(row, col);
+        Predator predator;
+        write_current.ref.predators.push_back(predator);
+    }
+
+    cout << "Starting workers\n";
+    
 
 }
 

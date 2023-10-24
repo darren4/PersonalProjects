@@ -23,3 +23,4 @@ class Prey : public Organism {
 class Predator : public Organism {
 
 };
+

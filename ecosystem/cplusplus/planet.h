@@ -1,17 +1,26 @@
+#include "organisms.h"
+
 #include <vector>
-#include <mutex>
+#include <shared_mutex>
 
-using std::mutex;
 
+struct PlanetPositionAccess{
+    std::lock_guard<std::mutex> lock;
+    PlanetPositionState& ref;
+    PlanetPositionAccess(std::mutex& _mutex_ref, 
+                        PlanetPositionState& _position_ref);
+};
 
 struct PlanetPositionState{
-    
+    std::vector<Predator> predators;
+    std::vector<Prey> prey;
+    unsigned int food;
 };
 
 struct PlanetPosition{
-    mutex current_lock;
+    std::mutex current_lock;
     PlanetPositionState current;
-    mutex next_lock;
+    std::mutex next_lock;
     PlanetPositionState next;
 };
 
@@ -19,15 +28,20 @@ class Planet{
 private:
     unsigned int height;
     unsigned int width;
-    vector<vector<PlanetPosition>> grid;
+    unsigned int worker_count;
+    std::vector<std::vector<PlanetPosition>> grid;
 public:
     Planet(unsigned int _height, unsigned int _width) 
-        : height(_height), width(_width) {
-        PlanetPosition default_position();
-
-        vector<PlanetPosition> grid_row;
+        : height(_height), width(_width), worker_count(_height * _width) {
+        PlanetPosition default_position;
+        std::vector<PlanetPosition> grid_row;
         grid_row.resize(width, default_position);
-
         grid.resize(height, grid_row);
+
+        
     }
-} global_planet;
+
+    PlanetPositionAccess write_current(unsigned int row, unsigned int col);
+    PlanetPositionAccess write_next(unsigned int row, unsigned int col);
+    
+};
