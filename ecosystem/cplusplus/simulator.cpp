@@ -2,13 +2,16 @@
 #include "planet.h"
 #include "random_numbers.h"
 #include "simulation_parameters.h"
+#include "simulator_workers.h"
 
 #include <vector>
 #include <iostream>
 #include <cstdlib>
+#include <thread>
 
 using std::cout;
 typedef unsigned int uint;
+
 
 
 void run_simulation(){
@@ -43,8 +46,18 @@ void run_simulation(){
     }
 
     cout << "Starting workers\n";
-    
-
+    SimulatorWorkers::initialize_workers_state(PLANET_GRID_HEIGHT * PLANET_GRID_HEIGHT, DAY_COUNT);
+    std::vector<std::thread> threads;
+    for (uint row = 0; row < PLANET_GRID_HEIGHT; ++row) {
+        for (uint col = 0; col < PLANET_GRID_HEIGHT; ++col) {
+            std::thread t(SimulatorWorkers::process_position, row, col);
+            threads.push_back(t);
+        }
+    }
+    for (std::thread& t : threads) {
+        t.join();
+    }
+    cout << "Simulation complete\n";
 }
 
 int main(){

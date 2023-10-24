@@ -1,7 +1,7 @@
 #include "organisms.h"
 
 #include <vector>
-#include <shared_mutex>
+#include <mutex>
 
 
 struct PlanetPositionAccess{
@@ -28,11 +28,10 @@ class Planet{
 private:
     unsigned int height;
     unsigned int width;
-    unsigned int worker_count;
     std::vector<std::vector<PlanetPosition>> grid;
 public:
     Planet(unsigned int _height, unsigned int _width) 
-        : height(_height), width(_width), worker_count(_height * _width) {
+        : height(_height), width(_width) {
         PlanetPosition default_position;
         std::vector<PlanetPosition> grid_row;
         grid_row.resize(width, default_position);
