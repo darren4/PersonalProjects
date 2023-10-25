@@ -1,3 +1,4 @@
+#include <vector>
 
 
 struct InheritedTraits {
@@ -12,15 +13,18 @@ struct InheritedTraits {
 };
 
 
+enum OrganismType {PREY, PREDATOR};
+
+
 class Organism {
 
 };
 
 class Prey : public Organism {
-
+    void eat_for_day(uint food_amount);
 };
 
 class Predator : public Organism {
-
+    void eat_for_day(std::vector<Prey> prey);
 };
 

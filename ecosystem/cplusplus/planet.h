@@ -5,7 +5,7 @@
 
 
 struct PlanetPositionAccess{
-    std::lock_guard<std::mutex> lock;
+    std::unique_lock<std::mutex> lock;
     PlanetPositionState& ref;
     PlanetPositionAccess(std::mutex& _mutex_ref, 
                         PlanetPositionState& _position_ref);
@@ -30,15 +30,8 @@ private:
     unsigned int width;
     std::vector<std::vector<PlanetPosition>> grid;
 public:
-    Planet(unsigned int _height, unsigned int _width) 
-        : height(_height), width(_width) {
-        PlanetPosition default_position;
-        std::vector<PlanetPosition> grid_row;
-        grid_row.resize(width, default_position);
-        grid.resize(height, grid_row);
-
-        
-    }
+    Planet();
+    Planet(unsigned int _height, unsigned int _width);
 
     PlanetPositionAccess write_current(unsigned int row, unsigned int col);
     PlanetPositionAccess write_next(unsigned int row, unsigned int col);
