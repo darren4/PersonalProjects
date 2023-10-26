@@ -8,8 +8,8 @@ float random_float(float start, float end){
 }
 
 
-unsigned int random_int(unsigned int start, unsigned int end){
+size_t random_int(size_t start, size_t end){
     assert(start <= end);
-    unsigned int diff = end - start;
+    size_t diff = end - start;
     return start + (rand() % diff);
 }

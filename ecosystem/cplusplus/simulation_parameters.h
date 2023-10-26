@@ -1,3 +1,5 @@
+#pragma once
+
 #define PLANET_GRID_HEIGHT 15
 #define PLANET_GRID_WIDTH 15
 #define START_PREDATOR_COUNT 45

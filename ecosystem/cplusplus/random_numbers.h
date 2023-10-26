@@ -1,9 +1,11 @@
+#pragma once
+
 #include <cstdlib>
 
 
 float random_float(float start, float end);
 
-unsigned int random_int(unsigned int start, unsigned int end);
+size_t random_int(size_t start, size_t end);
 
 
 

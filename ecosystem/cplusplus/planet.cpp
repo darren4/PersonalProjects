@@ -1,7 +1,7 @@
 #include "planet.h"
 
 
-Planet::Planet(unsigned int _height, unsigned int _width)
+Planet::Planet(size_t _height, size_t _width)
     : height(_height), width(_width) {
     PlanetPosition default_position;
     std::vector<PlanetPosition> grid_row;

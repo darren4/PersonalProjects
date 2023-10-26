@@ -10,7 +10,7 @@ InheritedTraits::InheritedTraits() {
     calorie_usage = random_int(0, 5);
 }
 
-InheritedTraits::InheritedTraits(unsigned int _strength, unsigned int _offspring_capacity, float _calorie_usage):
+InheritedTraits::InheritedTraits(size_t _strength, size_t _offspring_capacity, float _calorie_usage):
     strength(_strength), offspring_capacity(_offspring_capacity), calorie_usage(_calorie_usage) {}
 
 InheritedTraits::InheritedTraits(const InheritedTraits& inherited_traits):
