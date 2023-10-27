@@ -26,11 +26,11 @@ private:
 		std::vector<Predator>& surviving_predators);
 
 	// TODO: remove duplicate logic
-	std::vector<Prey> reproduce_prey(std::vector<Prey> prey);
-	std::vector<Predator> reproduce_predators(std::vector<Predator> predators);
+	std::vector<Prey> reproduce_prey(const std::vector<Prey>& prey);
+	std::vector<Predator> reproduce_predators(const std::vector<Predator>& predators);
 
-	void move_prey(size_t row, size_t col, std::vector<Prey> prey);
-	void move_predators(size_t row, size_t col, std::vector<Predator> predators);
+	void move_prey(size_t row, size_t col, const std::vector<Prey>& prey);
+	void move_predators(size_t row, size_t col, const std::vector<Predator>& predators);
 
 	void wait_for_processing();
 	void play_out_day(size_t row, size_t col);

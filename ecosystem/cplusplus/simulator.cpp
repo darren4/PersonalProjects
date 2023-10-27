@@ -68,18 +68,18 @@ void Simulator::populate_survivors(PlanetPositionState& pos,
 }
 
 
-std::vector<Prey> Simulator::reproduce_prey(std::vector<Prey> prey) {
+std::vector<Prey> Simulator::reproduce_prey(const std::vector<Prey>& prey) {
     
 }
 
-std::vector<Predator> Simulator::reproduce_predators(std::vector<Predator> predators) {
+std::vector<Predator> Simulator::reproduce_predators(const std::vector<Predator>& predators) {
     
 }
 
-void Simulator::move_prey(size_t row, size_t col, std::vector<Prey> prey) {
+void Simulator::move_prey(size_t row, size_t col, const std::vector<Prey>& prey) {
 
 }
-void Simulator::move_predators(size_t row, size_t col, std::vector<Predator> predators) {
+void Simulator::move_predators(size_t row, size_t col, const std::vector<Predator>& predators) {
 
 }
 
