@@ -18,7 +18,7 @@ using std::vector;
 
 void Simulator::wait_for_processing() {
     std::unique_lock<std::mutex> worker_state_lock(worker_state_mutex);
-    worker_state_cv.wait(worker_state_lock, [] { return worker_state != WorkerState::PROCESS; });
+    worker_state_cv.wait(worker_state_lock, [this] { return worker_state != WorkerState::PROCESS; });
 }
 
 void Simulator::populate_survivors(PlanetPositionState& pos,
@@ -146,7 +146,7 @@ void Simulator::run_simulation(){
     vector<std::thread> threads;
     for (size_t row = 0; row < PLANET_GRID_HEIGHT; ++row) {
         for (size_t col = 0; col < PLANET_GRID_HEIGHT; ++col) {
-            std::thread t(process_position, row, col);
+            std::thread t(&Simulator::process_position, this, row, col);
             threads.push_back(move(t));
         }
     }
