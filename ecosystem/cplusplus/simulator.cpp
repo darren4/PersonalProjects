@@ -18,7 +18,7 @@ using std::vector;
 
 void Simulator::wait_for_processing() {
     std::unique_lock<std::mutex> worker_state_lock(worker_state_mutex);
-    worker_state_cv.wait(worker_state_lock, [this] { return worker_state != WorkerState::PROCESS; });
+    worker_state_cv.wait(worker_state_lock, [] { return worker_state != WorkerState::PROCESS; });
 }
 
 void Simulator::populate_survivors(PlanetPositionState& pos,
@@ -67,11 +67,13 @@ void Simulator::populate_survivors(PlanetPositionState& pos,
     }
 }
 
+
 std::vector<Prey> Simulator::reproduce_prey(std::vector<Prey> prey) {
-
+    
 }
-std::vector<Predator> Simulator::reproduce_predators(std::vector<Predator> predators) {
 
+std::vector<Predator> Simulator::reproduce_predators(std::vector<Predator> predators) {
+    
 }
 
 void Simulator::move_prey(size_t row, size_t col, std::vector<Prey> prey) {
@@ -105,8 +107,6 @@ void Simulator::process_position(size_t row, size_t col) {
         transition_and_set_to_process();
     }
 }
-
-Simulator::Simulator() : ready(0), worker_count(0), worker_state(WorkerState::PROCESS), day_count(0) {}
 
 void Simulator::run_simulation(){
     cout << "Initializing simulation\n";
@@ -147,7 +147,7 @@ void Simulator::run_simulation(){
     for (size_t row = 0; row < PLANET_GRID_HEIGHT; ++row) {
         for (size_t col = 0; col < PLANET_GRID_HEIGHT; ++col) {
             std::thread t(process_position, row, col);
-            threads.push_back(t);
+            threads.push_back(move(t));
         }
     }
     for (std::thread& t : threads) {
