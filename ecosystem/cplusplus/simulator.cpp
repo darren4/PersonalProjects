@@ -22,17 +22,17 @@ void Simulator::wait_for_processing() {
 }
 
 void Simulator::populate_survivors(PlanetPositionState& pos,
-                                vector<Prey>& surviving_prey,
-                                vector<Predator>& surviving_predators) {
+                                vector<Prey*>& surviving_prey,
+                                vector<Predator*>& surviving_predators) {
     std::random_shuffle(pos.prey.begin(), pos.prey.end());
     std::random_shuffle(pos.predators.begin(), pos.predators.end());
 
     size_t prey_count = pos.prey.size();
     size_t predator_count = pos.predators.size();
     if (predator_count > 0) {
-        vector<std::pair<Predator, vector<Prey>>> predators_to_prey;
-        for (Predator predator : pos.predators) {
-            predators_to_prey.push_back(std::make_pair(predator, vector<Prey>()));
+        vector<std::pair<Predator*, vector<Prey*>>> predators_to_prey;
+        for (Predator* predator : pos.predators) {
+            predators_to_prey.push_back(std::make_pair(predator, vector<Prey*>()));
         }
         if (prey_count < predator_count) {
             for (size_t prey_idx = 0; prey_idx < prey_count; ++prey_idx) {
@@ -49,51 +49,51 @@ void Simulator::populate_survivors(PlanetPositionState& pos,
                 ++predator_idx;
             }
         }
-        for (std::pair<Predator, vector<Prey>> predator_prey : predators_to_prey) {
-            predator_prey.first.eat_for_day(predator_prey.second);
-            if (predator_prey.first.still_alive()) {
-                surviving_predators.push_back(Predator(predator_prey.first));
+        for (std::pair<Predator*, vector<Prey*>> predator_prey : predators_to_prey) {
+            predator_prey.first->eat_for_day(predator_prey.second);
+            if (predator_prey.first->still_alive()) {
+                surviving_predators.push_back(predator_prey.first);
             }
         }
     }
 
-    for (Prey& one_prey : pos.prey) {
-        if (one_prey.still_alive()) {
-            one_prey.eat_for_day(pos.food);
-            if (one_prey.still_alive()) {
-                surviving_prey.push_back(Prey(one_prey));
+    for (Prey* one_prey : pos.prey) {
+        if (one_prey->still_alive()) {
+            one_prey->eat_for_day(pos.food);
+            if (one_prey->still_alive()) {
+                surviving_prey.push_back(one_prey);
             }
         }
     }
 }
 
-
-std::vector<Prey> Simulator::reproduce_prey(const std::vector<Prey>& prey) {
-    
+std::pair<size_t, size_t> Simulator::get_next_location(size_t row, size_t col) {
+    vector<std::pair<size_t, size_t>> valid_positions;
+    size_t planet_height = planet.get_height();
+    size_t planet_width = planet.get_width();
+    if (row + 1 < planet_height && col + 1 < planet_width)
+        valid_positions.push_back({ row + 1, col + 1 });
 }
 
-std::vector<Predator> Simulator::reproduce_predators(const std::vector<Predator>& predators) {
-    
-}
-
-void Simulator::move_prey(size_t row, size_t col, const std::vector<Prey>& prey) {
-
-}
-void Simulator::move_predators(size_t row, size_t col, const std::vector<Predator>& predators) {
+void Simulator::move_organism(size_t current_row, size_t current_col, Organism* organism) {
 
 }
 
 void Simulator::play_out_day(size_t row, size_t col) {
     PlanetPositionAccess pos = planet.write_current(row, col);
-    vector<Prey> surviving_prey;
-    vector<Predator> surviving_predators;
-    populate_survivors(pos.ref, surviving_prey, surviving_predators);
+    vector<Prey*> next_prey;
+    vector<Predator*> next_predators;
+    populate_survivors(pos.ref, next_prey, next_predators);
 
-    vector<Prey> next_prey = reproduce_prey(surviving_prey);
-    vector<Predator> next_predators = reproduce_predators(surviving_predators);
+    reproduce_organisms(next_prey);
+    reproduce_organisms(next_predators);
 
-    move_prey(row, col, next_prey);
-    move_predators(row, col, next_predators);
+    for (Prey* one_prey : next_prey) {
+        move_organism(row, col, one_prey);
+    }
+    for (Predator* one_predator : next_predators) {
+        move_organism(row, col, one_predator);
+    }
 }
 
 void Simulator::process_position(size_t row, size_t col) {
@@ -128,16 +128,14 @@ void Simulator::run_simulation(){
         size_t row = random_int(0, PLANET_GRID_HEIGHT - 1);
         size_t col = random_int(0, PLANET_GRID_WIDTH - 1);
         PlanetPositionAccess write_current = planet.write_current(row, col);
-        Prey prey;
-        write_current.ref.prey.push_back(prey);
+        write_current.ref.prey.push_back(Prey::new_prey());
     }
 
     for (size_t i = 0; i < START_PREDATOR_COUNT; ++i){
         size_t row = random_int(0, PLANET_GRID_HEIGHT - 1);
         size_t col = random_int(0, PLANET_GRID_WIDTH - 1);
         PlanetPositionAccess write_current = planet.write_current(row, col);
-        Predator predator;
-        write_current.ref.predators.push_back(predator);
+        write_current.ref.predators.push_back(Predator::new_predator());
     }
 
     cout << "Starting workers\n";

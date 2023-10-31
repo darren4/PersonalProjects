@@ -6,9 +6,9 @@
 #include <mutex>
 
 
-struct PlanetPositionState{
-    std::vector<Predator> predators;
-    std::vector<Prey> prey;
+struct PlanetPositionState {
+    std::vector<Predator*> predators;
+    std::vector<Prey*> prey;
     size_t food;
 
     PlanetPositionState();
@@ -18,16 +18,16 @@ struct PlanetPositionState{
 
 struct PlanetPositionAccess {
     std::unique_lock<std::mutex> lock;
-    PlanetPositionState& ref;
+    PlanetPositionState ref;
 
     PlanetPositionAccess();
     PlanetPositionAccess(std::mutex& _mutex_ref,
-        PlanetPositionState& _position_ref);
+        PlanetPositionState _position_ref);
     PlanetPositionAccess(const PlanetPositionAccess& other);
     PlanetPositionAccess operator=(const PlanetPositionAccess& other);
 };
 
-struct PlanetPosition{
+struct PlanetPosition {
     std::mutex current_lock;
     PlanetPositionState current;
     std::mutex next_lock;
@@ -38,7 +38,7 @@ struct PlanetPosition{
     PlanetPosition operator=(const PlanetPosition& other);
 };
 
-class Planet{
+class Planet {
 private:
     size_t height;
     size_t width;
@@ -49,7 +49,9 @@ public:
     Planet(const Planet& other);
     Planet operator=(const Planet& other);
 
+    size_t get_height();
+    size_t get_width();
+
     PlanetPositionAccess write_current(size_t row, size_t col);
     PlanetPositionAccess write_next(size_t row, size_t col);
-    
 };

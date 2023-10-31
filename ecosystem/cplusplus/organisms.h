@@ -21,15 +21,20 @@ enum OrganismType {PREY, PREDATOR};
 class Organism {
 public:
     bool still_alive();
+
+    template<class T>
+    void reproduce(T*, std::vector<T*> organisms);
 };
 
 class Prey : public Organism {
 public:
     void eat_for_day(size_t food_amount);
+    static Prey* new_prey();
 };
 
 class Predator : public Organism {
 public:
-    void eat_for_day(std::vector<Prey> prey);
+    void eat_for_day(std::vector<Prey*> prey);
+    static Predator* new_predator();
 };
 

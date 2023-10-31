@@ -22,15 +22,20 @@ private:
 	size_t day_count;
 
 	void populate_survivors(PlanetPositionState& pos,
-		std::vector<Prey>& surviving_prey,
-		std::vector<Predator>& surviving_predators);
+		std::vector<Prey*>& surviving_prey,
+		std::vector<Predator*>& surviving_predators);
 
-	// TODO: remove duplicate logic
-	std::vector<Prey> reproduce_prey(const std::vector<Prey>& prey);
-	std::vector<Predator> reproduce_predators(const std::vector<Predator>& predators);
+	// TODO: move implementation elsewhere
+	template <class T>
+	void reproduce_organisms(std::vector<T*>& organisms) {
+		for (size_t org_right_idx = 1; org_right_idx < organisms.size(); org_right_idx += 2) {
+			organisms[org_right_idx - 1]->reproduce(organisms[org_right_idx], organisms);
+		}
+	}
+	
+	std::pair<size_t, size_t> get_next_location(size_t row, size_t col);
 
-	void move_prey(size_t row, size_t col, const std::vector<Prey>& prey);
-	void move_predators(size_t row, size_t col, const std::vector<Predator>& predators);
+	void move_organism(size_t current_row, size_t current_col, Organism* organism);
 
 	void wait_for_processing();
 	void play_out_day(size_t row, size_t col);
