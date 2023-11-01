@@ -73,10 +73,29 @@ std::pair<size_t, size_t> Simulator::get_next_location(size_t row, size_t col) {
     size_t planet_width = planet.get_width();
     if (row + 1 < planet_height && col + 1 < planet_width)
         valid_positions.push_back({ row + 1, col + 1 });
+    if (row + 1 < planet_height)
+        valid_positions.push_back({ row + 1, col });
+    if (row + 1 < planet_height && col >= 1)
+        valid_positions.push_back({ row + 1, col - 1 });
+    if (col >= 1)
+        valid_positions.push_back({ row, col - 1 });
+    if (row >= 1 && col >= 1)
+        valid_positions.push_back({ row - 1, col - 1 });
+    if (row - 1)
+        valid_positions.push_back({ row - 1 , col });
+    if (row >= 1 && col + 1 < planet_width)
+        valid_positions.push_back({ row - 1, col + 1 });
+    if (col + 1 < planet_width)
+        valid_positions.push_back({ row, col + 1 });
+
+    size_t random_position = random_int(0, valid_positions.size() - 1);
+    return valid_positions[random_position];
 }
 
-void Simulator::move_organism(size_t current_row, size_t current_col, Organism* organism) {
-
+PlanetPositionAccess Simulator::prepare_organism_move(size_t current_row, size_t current_col) {
+    std::pair<size_t, size_t> next_row_col = get_next_location(current_row, current_col);
+    size_t next_row = next_row_col.first, next_col = next_row_col.second;
+    return planet.write_next(next_row, next_col);
 }
 
 void Simulator::play_out_day(size_t row, size_t col) {
@@ -89,10 +108,12 @@ void Simulator::play_out_day(size_t row, size_t col) {
     reproduce_organisms(next_predators);
 
     for (Prey* one_prey : next_prey) {
-        move_organism(row, col, one_prey);
+        PlanetPositionAccess access_point = prepare_organism_move(row, col);
+        access_point.ref.prey.push_back(one_prey);
     }
     for (Predator* one_predator : next_predators) {
-        move_organism(row, col, one_predator);
+        PlanetPositionAccess access_point = prepare_organism_move(row, col);
+        access_point.ref.predators.push_back(one_predator);
     }
 }
 

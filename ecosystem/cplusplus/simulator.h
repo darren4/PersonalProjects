@@ -28,14 +28,15 @@ private:
 	// TODO: move implementation elsewhere
 	template <class T>
 	void reproduce_organisms(std::vector<T*>& organisms) {
-		for (size_t org_right_idx = 1; org_right_idx < organisms.size(); org_right_idx += 2) {
+		size_t organism_count = organisms.size();
+		for (size_t org_right_idx = 1; org_right_idx < organism_count; org_right_idx += 2) {
 			organisms[org_right_idx - 1]->reproduce(organisms[org_right_idx], organisms);
 		}
 	}
 	
 	std::pair<size_t, size_t> get_next_location(size_t row, size_t col);
 
-	void move_organism(size_t current_row, size_t current_col, Organism* organism);
+	PlanetPositionAccess prepare_organism_move(size_t current_row, size_t current_col);
 
 	void wait_for_processing();
 	void play_out_day(size_t row, size_t col);
