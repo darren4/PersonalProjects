@@ -18,10 +18,21 @@ InheritedTraits::InheritedTraits(const InheritedTraits& inherited_traits):
     offspring_capacity(inherited_traits.offspring_capacity),
     calorie_usage(inherited_traits.calorie_usage) {}
 
-void InheritedTraits::operator=(const InheritedTraits& inherited_traits) {
+InheritedTraits InheritedTraits::operator=(const InheritedTraits& inherited_traits) {
     strength = inherited_traits.strength;
     offspring_capacity = inherited_traits.offspring_capacity;
     calorie_usage = inherited_traits.calorie_usage;
 }
 
-
+void Predator::eat_for_day(std::vector<Prey*> prey) {
+    calorie_count -= traits.calorie_usage;
+    for (Prey* one_prey : prey) {
+        if (traits.strength > one_prey->get_strength()) {
+            one_prey->eaten();
+            calorie_count += one_prey->get_calorie_count();
+        }
+    }
+    if (calorie_count <= 0) {
+        alive = false;
+    }
+}
