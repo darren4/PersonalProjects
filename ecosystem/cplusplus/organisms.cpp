@@ -5,6 +5,7 @@
 
 
 InheritedTraits::InheritedTraits() {
+    // TODO: move this out
     strength = random_int(0, 5);
     offspring_capacity = random_int(0, 5);
     calorie_usage = random_int(0, 5);
@@ -22,6 +23,13 @@ InheritedTraits InheritedTraits::operator=(const InheritedTraits& inherited_trai
     strength = inherited_traits.strength;
     offspring_capacity = inherited_traits.offspring_capacity;
     calorie_usage = inherited_traits.calorie_usage;
+}
+
+SpeciesStatus::SpeciesStatus() : alive_count(0), created_in_round(0), eaten_in_round(0), starved_in_round(0) {}
+
+Predator* Predator::new_predator() {
+    // TODO: implement
+    return nullptr;
 }
 
 void Predator::eat_for_day(std::vector<Prey*> prey) {

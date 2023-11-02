@@ -31,8 +31,8 @@ class SpeciesStatus {
     InheritedTraits inherited_traits_totals;
 
     SpeciesStatus();
-    SpeciesStatus(const SpeciesStatus& other);
-    SpeciesStatus operator=(const SpeciesStatus& other);
+    SpeciesStatus(const SpeciesStatus& other) = delete;
+    SpeciesStatus operator=(const SpeciesStatus& other) = delete;
 
     void reset_round();
 };
@@ -43,15 +43,15 @@ protected:
     size_t calorie_count;
     InheritedTraits traits;
 
+    template<class T>
+    size_t new_organisms(T*, std::vector<T*> organisms);
+
 public:
     Organism();
     Organism(const Organism& other);
     Organism operator=(const Organism& other);
 
     bool still_alive();
-
-    template<class T>
-    void reproduce(T*, std::vector<T*> organisms);
 };
 
 class Prey : public Organism {
@@ -59,11 +59,12 @@ private:
     static SpeciesStatus species_status;
 
 public:
-    void eat_for_day(size_t food_amount);
     static Prey* new_prey();
+    void eat_for_day(size_t food_amount);
     size_t get_strength();
     size_t get_calorie_count();
     void eaten();
+    void reproduce(Prey*, std::vector<Prey*> prey);
 };
 
 class Predator : public Organism {
@@ -71,7 +72,8 @@ private:
     static SpeciesStatus species_status;
 
 public:
-    void eat_for_day(std::vector<Prey*> prey);
     static Predator* new_predator();
+    void eat_for_day(std::vector<Prey*> prey);
+    void reproduce(Predator*, std::vector<Predator*> predators);
 };
 
