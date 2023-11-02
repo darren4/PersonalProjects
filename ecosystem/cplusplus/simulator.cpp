@@ -149,14 +149,14 @@ void Simulator::run_simulation(){
         size_t row = random_int(0, PLANET_GRID_HEIGHT - 1);
         size_t col = random_int(0, PLANET_GRID_WIDTH - 1);
         PlanetPositionAccess write_current = planet.write_current(row, col);
-        write_current.ref.prey.push_back(Prey::new_prey());
+        write_current.ref.prey.push_back(Prey::get_new());
     }
 
     for (size_t i = 0; i < START_PREDATOR_COUNT; ++i){
         size_t row = random_int(0, PLANET_GRID_HEIGHT - 1);
         size_t col = random_int(0, PLANET_GRID_WIDTH - 1);
         PlanetPositionAccess write_current = planet.write_current(row, col);
-        write_current.ref.predators.push_back(Predator::new_predator());
+        write_current.ref.predators.push_back(Predator::get_new());
     }
 
     cout << "Starting workers\n";

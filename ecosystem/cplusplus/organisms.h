@@ -1,7 +1,11 @@
 #pragma once
 
+#include "random_numbers.h"
+
 #include <vector>
 #include <mutex>
+#include <algorithm>
+
 
 
 struct InheritedTraits {
@@ -12,10 +16,11 @@ struct InheritedTraits {
     InheritedTraits();
     InheritedTraits(size_t _strength, size_t _offspring_capacity, float _calorie_usage);
     InheritedTraits(const InheritedTraits& other);
+    InheritedTraits(const InheritedTraits& first, const InheritedTraits& second);
     InheritedTraits operator=(const InheritedTraits& other);
 };
 
-class SpeciesStatus {
+struct SpeciesStatus {
     size_t alive_count;
     std::mutex alive_count_mutex;
 
@@ -43,14 +48,13 @@ protected:
     size_t calorie_count;
     InheritedTraits traits;
 
-    template<class T>
-    size_t new_organisms(T*, std::vector<T*> organisms);
-
 public:
     Organism();
     Organism(const Organism& other);
+    Organism(const InheritedTraits& inherited_traits);
     Organism operator=(const Organism& other);
 
+    const InheritedTraits& get_traits();
     bool still_alive();
 };
 
@@ -59,12 +63,18 @@ private:
     static SpeciesStatus species_status;
 
 public:
-    static Prey* new_prey();
+    static Prey* get_new();
+    static Prey* get_new_with_traits(const InheritedTraits& inherited_traits);
+
+    Prey();
+    Prey(const InheritedTraits& inherited_traits);
+
     void eat_for_day(size_t food_amount);
+    void reproduce(Prey* mate, std::vector<Prey*> prey);
+
     size_t get_strength();
     size_t get_calorie_count();
     void eaten();
-    void reproduce(Prey*, std::vector<Prey*> prey);
 };
 
 class Predator : public Organism {
@@ -72,8 +82,13 @@ private:
     static SpeciesStatus species_status;
 
 public:
-    static Predator* new_predator();
+    static Predator* get_new();
+    static Predator* get_new_with_traits(const InheritedTraits& inherited_traits);
+
+    Predator();
+    Predator(const InheritedTraits& inherited_traits);
+
     void eat_for_day(std::vector<Prey*> prey);
-    void reproduce(Predator*, std::vector<Predator*> predators);
+    void reproduce(Predator* mate, std::vector<Predator*> predators);
 };
 
