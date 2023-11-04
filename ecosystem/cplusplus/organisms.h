@@ -11,13 +11,13 @@
 struct InheritedTraits {
     size_t strength;
     size_t offspring_capacity;
-    float calorie_usage;
+    size_t calorie_usage;
 
     InheritedTraits();
-    InheritedTraits(size_t _strength, size_t _offspring_capacity, float _calorie_usage);
+    InheritedTraits(size_t _strength, size_t _offspring_capacity, size_t _calorie_usage);
     InheritedTraits(const InheritedTraits& other);
     InheritedTraits(const InheritedTraits& first, const InheritedTraits& second);
-    InheritedTraits operator=(const InheritedTraits& other);
+    InheritedTraits& operator=(const InheritedTraits& other);
 };
 
 struct SpeciesStatus {
@@ -50,12 +50,12 @@ protected:
 
 public:
     Organism();
-    Organism(const Organism& other);
+    Organism(const Organism& other) = delete;
     Organism(const InheritedTraits& inherited_traits);
-    Organism operator=(const Organism& other);
+    Organism operator=(const Organism& other) = delete;
 
-    const InheritedTraits& get_traits();
-    bool still_alive();
+    const InheritedTraits& get_traits() const;
+    bool still_alive() const;
 };
 
 class Prey : public Organism {
@@ -72,8 +72,8 @@ public:
     void eat_for_day(size_t food_amount);
     void reproduce(Prey* mate, std::vector<Prey*> prey);
 
-    size_t get_strength();
-    size_t get_calorie_count();
+    size_t get_strength() const;
+    size_t get_calorie_count() const;
     void eaten();
 };
 

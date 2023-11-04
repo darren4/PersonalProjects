@@ -21,22 +21,22 @@ void Simulator::wait_for_processing() {
     worker_state_cv.wait(worker_state_lock, [this] { return worker_state != WorkerState::PROCESS; });
 }
 
-void Simulator::populate_survivors(PlanetPositionState& pos,
+void Simulator::populate_survivors(PlanetPositionState* pos,
                                 vector<Prey*>& surviving_prey,
                                 vector<Predator*>& surviving_predators) {
-    std::random_shuffle(pos.prey.begin(), pos.prey.end());
-    std::random_shuffle(pos.predators.begin(), pos.predators.end());
+    std::random_shuffle(pos->prey.begin(), pos->prey.end());
+    std::random_shuffle(pos->predators.begin(), pos->predators.end());
 
-    size_t prey_count = pos.prey.size();
-    size_t predator_count = pos.predators.size();
+    size_t prey_count = pos->prey.size();
+    size_t predator_count = pos->predators.size();
     if (predator_count > 0) {
         vector<std::pair<Predator*, vector<Prey*>>> predators_to_prey;
-        for (Predator* predator : pos.predators) {
+        for (Predator* predator : pos->predators) {
             predators_to_prey.push_back(std::make_pair(predator, vector<Prey*>()));
         }
         if (prey_count < predator_count) {
             for (size_t prey_idx = 0; prey_idx < prey_count; ++prey_idx) {
-                predators_to_prey[prey_idx].second.push_back(pos.prey[prey_idx]);
+                predators_to_prey[prey_idx].second.push_back(pos->prey[prey_idx]);
             }
         }
         else {
@@ -45,7 +45,7 @@ void Simulator::populate_survivors(PlanetPositionState& pos,
                 if (predator_idx == prey_idx) {
                     predator_idx = 0;
                 }
-                predators_to_prey[predator_idx].second.push_back(pos.prey[prey_idx]);
+                predators_to_prey[predator_idx].second.push_back(pos->prey[prey_idx]);
                 ++predator_idx;
             }
         }
@@ -57,9 +57,9 @@ void Simulator::populate_survivors(PlanetPositionState& pos,
         }
     }
 
-    for (Prey* one_prey : pos.prey) {
+    for (Prey* one_prey : pos->prey) {
         if (one_prey->still_alive()) {
-            one_prey->eat_for_day(pos.food);
+            one_prey->eat_for_day(pos->food);
             if (one_prey->still_alive()) {
                 surviving_prey.push_back(one_prey);
             }
@@ -109,11 +109,11 @@ void Simulator::play_out_day(size_t row, size_t col) {
 
     for (Prey* one_prey : next_prey) {
         PlanetPositionAccess access_point = prepare_organism_move(row, col);
-        access_point.ref.prey.push_back(one_prey);
+        access_point.ref->prey.push_back(one_prey);
     }
     for (Predator* one_predator : next_predators) {
         PlanetPositionAccess access_point = prepare_organism_move(row, col);
-        access_point.ref.predators.push_back(one_predator);
+        access_point.ref->predators.push_back(one_predator);
     }
 }
 
@@ -140,23 +140,23 @@ void Simulator::run_simulation(){
         size_t row = random_int(0, PLANET_GRID_HEIGHT - 1);
         size_t col = random_int(0, PLANET_GRID_WIDTH - 1);
         PlanetPositionAccess write_current = planet.write_current(row, col);
-        write_current.ref.food += 1;
+        write_current.ref->food += 1;
         PlanetPositionAccess write_next = planet.write_next(row, col);
-        write_next.ref.food += 1;
+        write_next.ref->food += 1;
     }
 
     for (size_t i = 0; i < START_PREY_COUNT; ++i){
         size_t row = random_int(0, PLANET_GRID_HEIGHT - 1);
         size_t col = random_int(0, PLANET_GRID_WIDTH - 1);
         PlanetPositionAccess write_current = planet.write_current(row, col);
-        write_current.ref.prey.push_back(Prey::get_new());
+        write_current.ref->prey.push_back(Prey::get_new());
     }
 
     for (size_t i = 0; i < START_PREDATOR_COUNT; ++i){
         size_t row = random_int(0, PLANET_GRID_HEIGHT - 1);
         size_t col = random_int(0, PLANET_GRID_WIDTH - 1);
         PlanetPositionAccess write_current = planet.write_current(row, col);
-        write_current.ref.predators.push_back(Predator::get_new());
+        write_current.ref->predators.push_back(Predator::get_new());
     }
 
     cout << "Starting workers\n";

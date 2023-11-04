@@ -14,7 +14,7 @@ InheritedTraits::InheritedTraits() {
     calorie_usage = random_int(0, 5);
 }
 
-InheritedTraits::InheritedTraits(size_t _strength, size_t _offspring_capacity, float _calorie_usage):
+InheritedTraits::InheritedTraits(size_t _strength, size_t _offspring_capacity, size_t _calorie_usage):
     strength(_strength), offspring_capacity(_offspring_capacity), calorie_usage(_calorie_usage) {}
 
 InheritedTraits::InheritedTraits(const InheritedTraits& inherited_traits):
@@ -22,12 +22,21 @@ InheritedTraits::InheritedTraits(const InheritedTraits& inherited_traits):
     offspring_capacity(inherited_traits.offspring_capacity),
     calorie_usage(inherited_traits.calorie_usage) {}
 
+InheritedTraits::InheritedTraits(const InheritedTraits& first, const InheritedTraits& second) {
+    strength = (random_int(0, 1)) ? first.strength : second.strength;
+    offspring_capacity = (random_int(0, 1)) ? first.offspring_capacity : second.offspring_capacity;
+    calorie_usage = (random_int(0, 1)) ? first.calorie_usage : second.calorie_usage;
+}
 
+InheritedTraits& InheritedTraits::operator=(const InheritedTraits& inherited_traits) {
+    if (this == &inherited_traits)
+        return *this;
 
-InheritedTraits InheritedTraits::operator=(const InheritedTraits& inherited_traits) {
     strength = inherited_traits.strength;
     offspring_capacity = inherited_traits.offspring_capacity;
     calorie_usage = inherited_traits.calorie_usage;
+
+    return *this;
 }
 
 // --- SpeciesStatus ---
@@ -38,6 +47,20 @@ void SpeciesStatus::reset_round() {
     created_in_round = 0;
     eaten_in_round = 0;
     starved_in_round = 0;
+}
+
+// --- Organism ---
+
+Organism::Organism() : alive(true), calorie_count(10) {}
+
+Organism::Organism(const InheritedTraits& inherited_traits) : alive(true), calorie_count(10), traits(inherited_traits) {}
+
+const InheritedTraits& Organism::get_traits() const {
+    return traits;
+}
+
+bool Organism::still_alive() const {
+    return alive;
 }
 
 // --- Prey ---
@@ -69,11 +92,11 @@ void Prey::reproduce(Prey* mate, std::vector<Prey*> prey) {
     }
 }
 
-size_t Prey::get_strength() {
+size_t Prey::get_strength() const {
     return traits.strength;
 }
 
-size_t Prey::get_calorie_count() {
+size_t Prey::get_calorie_count() const {
     return calorie_count;
 }
 

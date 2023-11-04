@@ -21,7 +21,7 @@ private:
 	Planet planet;
 	size_t day_count;
 
-	void populate_survivors(PlanetPositionState& pos,
+	void populate_survivors(PlanetPositionState* pos,
 		std::vector<Prey*>& surviving_prey,
 		std::vector<Predator*>& surviving_predators);
 
