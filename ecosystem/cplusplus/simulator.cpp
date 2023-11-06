@@ -123,9 +123,9 @@ void Simulator::process_position(size_t row, size_t col) {
 
         play_out_day(row, col);
 
-        check_and_display_status();
+        // check_and_display_status();
 
-        transition_and_set_to_process();
+        // transition_and_set_to_process();
     }
 }
 

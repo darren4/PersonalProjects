@@ -1,6 +1,7 @@
 #pragma once
 
 #include "organisms.h"
+#include "planet.h"
 
 #include <mutex>
 #include <condition_variable>
