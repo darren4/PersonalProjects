@@ -44,11 +44,15 @@ struct SpeciesStatus {
 
 class Organism {
 protected:
+    static SpeciesStatus status_of_organisms;
+
     bool alive;
     size_t calorie_count;
     InheritedTraits traits;
 
 public:
+    static bool display_status();
+
     Organism();
     Organism(const Organism& other) = delete;
     Organism(const InheritedTraits& inherited_traits);
@@ -60,7 +64,7 @@ public:
 
 class Prey : public Organism {
 private:
-    static SpeciesStatus species_status;
+    static SpeciesStatus status_of_prey;
 
 public:
     static Prey* get_new();
@@ -79,7 +83,7 @@ public:
 
 class Predator : public Organism {
 private:
-    static SpeciesStatus species_status;
+    static SpeciesStatus status_of_predators;
 
 public:
     static Predator* get_new();

@@ -13,7 +13,7 @@ private:
 	std::mutex ready_mutex;
 	std::condition_variable ready_cv;
 
-	size_t worker_count;
+	const size_t worker_count;
 	enum WorkerState {PROCESS, TRANSITION, DONE};
 	WorkerState worker_state;
 	std::mutex worker_state_mutex;
@@ -46,5 +46,6 @@ private:
 
 	void process_position(size_t row, size_t col);
 public:
+	Simulator();
 	void run_simulation();
 };

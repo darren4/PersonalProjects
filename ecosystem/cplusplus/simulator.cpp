@@ -16,6 +16,11 @@
 using std::cout;
 using std::vector;
 
+
+Simulator::Simulator() : ready(0), worker_count(PLANET_GRID_HEIGHT * PLANET_GRID_WIDTH), 
+                         worker_state(WorkerState::PROCESS),
+                         planet(Planet(PLANET_GRID_HEIGHT, PLANET_GRID_WIDTH)), day_count(DAY_COUNT) {}
+
 void Simulator::wait_for_processing() {
     std::unique_lock<std::mutex> worker_state_lock(worker_state_mutex);
     worker_state_cv.wait(worker_state_lock, [this] { return worker_state != WorkerState::PROCESS; });
@@ -117,13 +122,21 @@ void Simulator::play_out_day(size_t row, size_t col) {
     }
 }
 
+void Simulator::check_and_display_status() {
+    std::unique_lock<std::mutex> ready_count_lock(ready_mutex);
+    ++ready;
+    if (ready == worker_count) {
+
+    }
+}
+
 void Simulator::process_position(size_t row, size_t col) {
     for (size_t day = 0; day < day_count; ++day) {
         wait_for_processing();
 
         play_out_day(row, col);
 
-        // check_and_display_status();
+        check_and_display_status();
 
         // transition_and_set_to_process();
     }
@@ -132,9 +145,6 @@ void Simulator::process_position(size_t row, size_t col) {
 void Simulator::run_simulation(){
     cout << "Initializing simulation\n";
     srand(0);
-
-    Planet _planet(PLANET_GRID_HEIGHT, PLANET_GRID_WIDTH);
-    planet = _planet;
 
     for (size_t i = 0; i < START_FOOD_SOURCE_COUNT; ++i) {
         size_t row = random_int(0, PLANET_GRID_HEIGHT - 1);
@@ -160,8 +170,6 @@ void Simulator::run_simulation(){
     }
 
     cout << "Starting workers\n";
-    worker_count = PLANET_GRID_HEIGHT * PLANET_GRID_HEIGHT;
-    day_count = DAY_COUNT;
     vector<std::thread> threads;
     for (size_t row = 0; row < PLANET_GRID_HEIGHT; ++row) {
         for (size_t col = 0; col < PLANET_GRID_HEIGHT; ++col) {
