@@ -78,6 +78,8 @@ std::pair<size_t, size_t> Simulator::get_next_location(size_t row, size_t col) {
     vector<std::pair<size_t, size_t>> valid_positions;
     size_t planet_height = planet.get_height();
     size_t planet_width = planet.get_width();
+
+    valid_positions.push_back({ row, col });
     if (row + 1 < planet_height && col + 1 < planet_width)
         valid_positions.push_back({ row + 1, col + 1 });
     if (row + 1 < planet_height)
@@ -88,7 +90,7 @@ std::pair<size_t, size_t> Simulator::get_next_location(size_t row, size_t col) {
         valid_positions.push_back({ row, col - 1 });
     if (row >= 1 && col >= 1)
         valid_positions.push_back({ row - 1, col - 1 });
-    if (row - 1)
+    if (row >= 1)
         valid_positions.push_back({ row - 1 , col });
     if (row >= 1 && col + 1 < planet_width)
         valid_positions.push_back({ row - 1, col + 1 });
@@ -201,7 +203,7 @@ void Simulator::run_simulation(){
         PlanetPositionAccess write_current = planet.write_current(row, col);
         write_current.ref->predators.push_back(Predator::get_new());
     }
-
+    
     cout << "Starting workers\n";
     vector<std::thread> threads;
     threads.reserve(worker_count);
