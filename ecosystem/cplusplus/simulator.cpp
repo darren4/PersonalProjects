@@ -12,8 +12,10 @@
 #include <mutex>
 #include <algorithm>
 #include <utility>
+#include <cassert>
 
 using std::cout;
+using std::endl;
 using std::vector;
 
 
@@ -23,7 +25,7 @@ Simulator::Simulator() : ready(0), worker_count(PLANET_GRID_HEIGHT * PLANET_GRID
 
 void Simulator::wait_for_processing() {
     std::unique_lock<std::mutex> worker_state_lock(worker_state_mutex);
-    worker_state_cv.wait(worker_state_lock, [this] { return worker_state != WorkerState::PROCESS; });
+    worker_state_cv.wait(worker_state_lock, [this] { return worker_state == WorkerState::PROCESS; });
 }
 
 void Simulator::populate_survivors(PlanetPositionState* pos,
@@ -122,23 +124,54 @@ void Simulator::play_out_day(size_t row, size_t col) {
     }
 }
 
-void Simulator::check_and_display_status() {
+bool Simulator::get_ecosystem_status() {
+    return false;
+}
+
+void Simulator::set_worker_state(WorkerState next_worker_state, bool check_ecosystem_health) {
     std::unique_lock<std::mutex> ready_count_lock(ready_mutex);
     ++ready;
     if (ready == worker_count) {
+        ready = 0;
+        if (check_ecosystem_health && !get_ecosystem_status()) {
+            next_worker_state = WorkerState::DONE;
+        }
+        std::unique_lock<std::mutex> worker_state_lock(worker_state_mutex);
+        worker_state = next_worker_state;
+        worker_state_cv.notify_all();
+    }
+}
 
+bool Simulator::transition_day(size_t row, size_t col) {
+    std::unique_lock<std::mutex> worker_state_lock(worker_state_mutex);
+    worker_state_cv.wait(worker_state_lock, [this] { return worker_state != WorkerState::PROCESS; });
+    if (worker_state == WorkerState::DONE) {
+        return false;
+    }
+    else if (worker_state == WorkerState::DONE) {
+        PlanetPositionAccess current_access = planet.write_current(row, col);
+        PlanetPositionAccess next_access = planet.write_next(row, col);
+        *current_access.ref = *next_access.ref;
+        return true;
+    }
+    else {
+        assert(false);
     }
 }
 
 void Simulator::process_position(size_t row, size_t col) {
     for (size_t day = 0; day < day_count; ++day) {
         wait_for_processing();
-
         play_out_day(row, col);
 
-        check_and_display_status();
+        set_worker_state(WorkerState::TRANSITION, true);
 
-        // transition_and_set_to_process();
+        if (transition_day(row, col)) {
+            set_worker_state(WorkerState::PROCESS, false);
+        }
+        else {
+            return;
+        }
     }
 }
 
@@ -171,10 +204,10 @@ void Simulator::run_simulation(){
 
     cout << "Starting workers\n";
     vector<std::thread> threads;
+    threads.reserve(worker_count);
     for (size_t row = 0; row < PLANET_GRID_HEIGHT; ++row) {
         for (size_t col = 0; col < PLANET_GRID_HEIGHT; ++col) {
-            std::thread t(&Simulator::process_position, this, row, col);
-            threads.push_back(move(t));
+            threads.push_back(std::thread(&Simulator::process_position, this, row, col));
         }
     }
     for (std::thread& t : threads) {

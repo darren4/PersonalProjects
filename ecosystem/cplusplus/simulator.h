@@ -39,10 +39,12 @@ private:
 
 	PlanetPositionAccess prepare_organism_move(size_t current_row, size_t current_col);
 
+	bool get_ecosystem_status();
+
 	void wait_for_processing();
 	void play_out_day(size_t row, size_t col);
-	void check_and_display_status();
-	void transition_and_set_to_process();
+	void set_worker_state(WorkerState next_worker_state, bool check_ecosystem_health);
+	bool transition_day(size_t row, size_t col);
 
 	void process_position(size_t row, size_t col);
 public:

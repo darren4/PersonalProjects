@@ -5,6 +5,16 @@
 
 PlanetPositionState::PlanetPositionState() : food(0) {}
 
+PlanetPositionState& PlanetPositionState::operator=(const PlanetPositionState& other) {
+    if (this == &other) {
+        return *this;
+    }
+    predators = other.predators;
+    prey = other.prey;
+    food = other.food;
+    return *this;
+}
+
 // --- PlanetPositionAccess ---
 
 PlanetPositionAccess::PlanetPositionAccess(std::mutex* _ref_mutex, PlanetPositionState* _position_ref) : ref_mutex(_ref_mutex), ref(_position_ref) {
@@ -30,6 +40,15 @@ PlanetPositionAccess::~PlanetPositionAccess() {
 // --- PlanetPosition ---
 
 PlanetPosition::PlanetPosition() {}
+
+PlanetPosition& PlanetPosition::operator=(const PlanetPosition& other) {
+    if (this == &other) {
+        return *this;
+    }
+    current = other.current;
+    next = other.next;
+    return *this;
+}
 
 // --- Planet ---
 
