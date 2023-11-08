@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <utility>
 #include <cassert>
+#include <stdio.h>
 
 using std::cout;
 using std::endl;
@@ -49,7 +50,7 @@ void Simulator::populate_survivors(PlanetPositionState* pos,
         else {
             size_t predator_idx = 0;
             for (size_t prey_idx = 0; prey_idx < prey_count; ++prey_idx) {
-                if (predator_idx == prey_idx) {
+                if (predator_idx == predator_count) {
                     predator_idx = 0;
                 }
                 predators_to_prey[predator_idx].second.push_back(pos->prey[prey_idx]);
@@ -98,7 +99,9 @@ std::pair<size_t, size_t> Simulator::get_next_location(size_t row, size_t col) {
         valid_positions.push_back({ row, col + 1 });
 
     size_t random_position = random_int(0, valid_positions.size() - 1);
-    return valid_positions[random_position];
+    std::pair<size_t, size_t> new_pos = valid_positions[random_position];
+    assert(new_pos.first >= 0 && new_pos.first < planet_height && new_pos.second >= 0 && new_pos.second < planet_width);
+    return new_pos;
 }
 
 PlanetPositionAccess Simulator::prepare_organism_move(size_t current_row, size_t current_col) {
@@ -127,7 +130,7 @@ void Simulator::play_out_day(size_t row, size_t col) {
 }
 
 bool Simulator::get_ecosystem_status() {
-    return false;
+    return true;
 }
 
 void Simulator::set_worker_state(WorkerState next_worker_state, bool check_ecosystem_health) {
@@ -150,7 +153,7 @@ bool Simulator::transition_day(size_t row, size_t col) {
     if (worker_state == WorkerState::DONE) {
         return false;
     }
-    else if (worker_state == WorkerState::DONE) {
+    else if (worker_state == WorkerState::TRANSITION) {
         PlanetPositionAccess current_access = planet.write_current(row, col);
         PlanetPositionAccess next_access = planet.write_next(row, col);
         *current_access.ref = *next_access.ref;
@@ -165,7 +168,6 @@ void Simulator::process_position(size_t row, size_t col) {
     for (size_t day = 0; day < day_count; ++day) {
         wait_for_processing();
         play_out_day(row, col);
-
         set_worker_state(WorkerState::TRANSITION, true);
 
         if (transition_day(row, col)) {

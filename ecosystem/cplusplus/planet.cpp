@@ -1,14 +1,16 @@
 #include "planet.h"
 
+#include <cassert>
+
 
 // --- PlanetPositionState ---
 
 PlanetPositionState::PlanetPositionState() : food(0) {}
 
 PlanetPositionState& PlanetPositionState::operator=(const PlanetPositionState& other) {
-    if (this == &other) {
+    if (this == &other) 
         return *this;
-    }
+    
     predators = other.predators;
     prey = other.prey;
     food = other.food;
@@ -28,7 +30,6 @@ PlanetPositionAccess& PlanetPositionAccess::operator=(const PlanetPositionAccess
         return *this;
 
     ref = other.ref;
-    ref_mutex = other.ref_mutex;
 
     return *this;
 }
@@ -93,9 +94,11 @@ std::vector<std::vector<PlanetPosition*>> Planet::get_grid() const {
 }
 
 PlanetPositionAccess Planet::write_current(size_t row, size_t col) {
+    assert(row >= 0 && row < height && col >= 0 && col < width);
     return PlanetPositionAccess(&grid[row][col]->current_mutex, &grid[row][col]->current);
 }
 
 PlanetPositionAccess Planet::write_next(size_t row, size_t col) {
+    assert(row >= 0 && row < height && col >= 0 && col < width);
     return PlanetPositionAccess(&grid[row][col]->next_mutex, &grid[row][col]->next);
 }
