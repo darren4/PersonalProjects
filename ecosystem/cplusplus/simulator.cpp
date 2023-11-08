@@ -62,6 +62,9 @@ void Simulator::populate_survivors(PlanetPositionState* pos,
             if (predator_prey.first->still_alive()) {
                 surviving_predators.push_back(predator_prey.first);
             }
+            else {
+                delete predator_prey.first;
+            }
         }
     }
 
@@ -70,6 +73,9 @@ void Simulator::populate_survivors(PlanetPositionState* pos,
             one_prey->eat_for_day(pos->food);
             if (one_prey->still_alive()) {
                 surviving_prey.push_back(one_prey);
+            }
+            else {
+                delete one_prey;
             }
         }
     }
