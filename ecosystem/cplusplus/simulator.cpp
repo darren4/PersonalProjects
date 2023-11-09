@@ -110,28 +110,15 @@ std::pair<size_t, size_t> Simulator::get_next_location(size_t row, size_t col) {
     return new_pos;
 }
 
-PlanetPositionAccess Simulator::prepare_organism_move(size_t current_row, size_t current_col) {
-    std::pair<size_t, size_t> next_row_col = get_next_location(current_row, current_col);
-    return planet.write_next(next_row_col.first, next_row_col.second);
-}
+void Simulator::play_out_day(size_t row, size_t col, vector<Prey*>& next_prey, vector<Predator*>& next_predators) {
+    PlanetPositionAccess pos = planet.write(row, col);
 
-void Simulator::play_out_day(size_t row, size_t col) {
-    PlanetPositionAccess pos = planet.write_current(row, col);
-    vector<Prey*> next_prey;
-    vector<Predator*> next_predators;
-    populate_survivors(pos.ref, next_prey, next_predators);
+    populate_survivors(pos, next_prey, next_predators);
 
     reproduce_organisms(next_prey);
     reproduce_organisms(next_predators);
 
-    for (Prey* one_prey : next_prey) {
-        PlanetPositionAccess access_point = prepare_organism_move(row, col);
-        access_point.ref->prey.push_back(one_prey);
-    }
-    for (Predator* one_predator : next_predators) {
-        PlanetPositionAccess access_point = prepare_organism_move(row, col);
-        access_point.ref->predators.push_back(one_predator);
-    }
+    pos->reset();
 }
 
 bool Simulator::get_ecosystem_status() {
@@ -152,17 +139,27 @@ void Simulator::set_worker_state(WorkerState next_worker_state, bool check_ecosy
     }
 }
 
-bool Simulator::transition_day(size_t row, size_t col) {
+PlanetPositionAccess Simulator::prepare_organism_move(size_t current_row, size_t current_col) {
+    std::pair<size_t, size_t> next_row_col = get_next_location(current_row, current_col);
+    return planet.write(next_row_col.first, next_row_col.second);
+}
+
+bool Simulator::transition_day(size_t row, size_t col, const std::vector<Prey*>& next_prey, const std::vector<Predator*>& next_predators) {
     std::unique_lock<std::mutex> worker_state_lock(worker_state_mutex);
     worker_state_cv.wait(worker_state_lock, [this] { return worker_state != WorkerState::PROCESS; });
     if (worker_state == WorkerState::DONE) {
         return false;
     }
     else if (worker_state == WorkerState::TRANSITION) {
-        PlanetPositionAccess current_access = planet.write_current(row, col);
-        PlanetPositionAccess next_access = planet.write_next(row, col);
-        current_access.ref->get_organisms(*next_access.ref);
-        next_access.ref->reset();
+        PlanetPositionAccess access = planet.write(row, col);
+        for (Prey* one_prey : next_prey) {
+            PlanetPositionAccess access = prepare_organism_move(row, col);
+            access.get_prey_ptr()->push_back(one_prey);
+        }
+        for (Predator* one_predator : next_predators) {
+            PlanetPositionAccess access = prepare_organism_move(row, col);
+            access.get_predators_ptr()->push_back(one_predator);
+        }
         return true;
     }
     else {
@@ -173,11 +170,16 @@ bool Simulator::transition_day(size_t row, size_t col) {
 void Simulator::process_position(size_t row, size_t col) {
     for (size_t day = 0; day < day_count; ++day) {
         printf("processing day %d\n", day);
+
         wait_for_processing();
-        play_out_day(row, col);
+
+        vector<Prey*> next_prey;
+        vector<Predator*> next_predators;
+        play_out_day(row, col, next_prey, next_predators);
+
         set_worker_state(WorkerState::TRANSITION, true);
 
-        if (transition_day(row, col)) {
+        if (transition_day(row, col, next_prey, next_predators)) {
             set_worker_state(WorkerState::PROCESS, false);
         }
         else {
@@ -193,24 +195,22 @@ void Simulator::run_simulation(){
     for (size_t i = 0; i < START_FOOD_SOURCE_COUNT; ++i) {
         size_t row = random_int(0, PLANET_GRID_HEIGHT - 1);
         size_t col = random_int(0, PLANET_GRID_WIDTH - 1);
-        PlanetPositionAccess write_current = planet.write_current(row, col);
-        write_current.ref->food += 1;
-        PlanetPositionAccess write_next = planet.write_next(row, col);
-        write_next.ref->food += 1;
+        PlanetPositionAccess access = planet.write(row, col);
+        *access.get_food_ptr() += 1;
     }
 
     for (size_t i = 0; i < START_PREY_COUNT; ++i){
         size_t row = random_int(0, PLANET_GRID_HEIGHT - 1);
         size_t col = random_int(0, PLANET_GRID_WIDTH - 1);
-        PlanetPositionAccess write_current = planet.write_current(row, col);
-        write_current.ref->prey.push_back(Prey::get_new());
+        PlanetPositionAccess access = planet.write(row, col);
+        access.get_prey_ptr()->push_back(Prey::get_new());
     }
 
     for (size_t i = 0; i < START_PREDATOR_COUNT; ++i){
         size_t row = random_int(0, PLANET_GRID_HEIGHT - 1);
         size_t col = random_int(0, PLANET_GRID_WIDTH - 1);
-        PlanetPositionAccess write_current = planet.write_current(row, col);
-        write_current.ref->predators.push_back(Predator::get_new());
+        PlanetPositionAccess access = planet.write(row, col);
+        access.get_predators_ptr()->push_back(Predator::get_new());
     }
     
     cout << "Starting workers\n";

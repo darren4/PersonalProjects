@@ -6,40 +6,37 @@
 #include <mutex>
 
 
-struct PlanetPositionState {
+struct PlanetPosition {
+    std::mutex position_mutex;
     std::vector<Predator*> predators;
     std::vector<Prey*> prey;
     size_t food;
 
-    PlanetPositionState();
-    PlanetPositionState(const PlanetPositionState& other) = delete;
-    PlanetPositionState& operator=(const PlanetPositionState& other) = delete;
-
-    void get_organisms(const PlanetPositionState& other);
-    void reset();
-};
-
-struct PlanetPositionAccess {
-    std::mutex* ref_mutex;
-    PlanetPositionState* ref;
-
-    PlanetPositionAccess() = delete;
-    PlanetPositionAccess(std::mutex* _ref_mutex,
-        PlanetPositionState* _position_ref);
-    PlanetPositionAccess(const PlanetPositionAccess& other);
-    PlanetPositionAccess& operator=(const PlanetPositionAccess& other);
-    ~PlanetPositionAccess();
-};
-
-struct PlanetPosition {
-    std::mutex current_mutex;
-    PlanetPositionState current;
-    std::mutex next_mutex;
-    PlanetPositionState next;
-
     PlanetPosition();
     PlanetPosition(const PlanetPosition& other) = delete;
     PlanetPosition& operator=(const PlanetPosition& other) = delete;
+
+    void reset();
+};
+
+class PlanetPositionAccess {
+private:
+    std::vector<Predator*>* predators;
+    std::vector<Prey*>* prey;
+    size_t* food;
+    std::mutex* position_mutex;
+
+public:
+    PlanetPositionAccess() = delete;
+    PlanetPositionAccess(PlanetPosition& _position_ref);
+    PlanetPositionAccess(const PlanetPositionAccess& other) = delete;
+    PlanetPositionAccess& operator=(const PlanetPositionAccess& other);
+    ~PlanetPositionAccess();
+
+    std::vector<Predator*>* get_predators_ptr() const;
+    std::vector<Prey*>* get_prey_ptr() const;
+    size_t* get_food_ptr() const;
+    std::mutex* get_position_mutex_ptr() const;
 };
 
 class Planet {
@@ -57,6 +54,5 @@ public:
     size_t get_width() const;
     std::vector<std::vector<PlanetPosition*>> get_grid() const;
 
-    PlanetPositionAccess write_current(size_t row, size_t col);
-    PlanetPositionAccess write_next(size_t row, size_t col);
+    PlanetPositionAccess write(size_t row, size_t col);
 };

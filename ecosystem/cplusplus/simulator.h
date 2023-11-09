@@ -42,9 +42,9 @@ private:
 	bool get_ecosystem_status();
 
 	void wait_for_processing();
-	void play_out_day(size_t row, size_t col);
+	void play_out_day(size_t row, size_t col, std::vector<Prey*>& next_prey, std::vector<Predator*>& next_predators);
 	void set_worker_state(WorkerState next_worker_state, bool check_ecosystem_health);
-	bool transition_day(size_t row, size_t col);
+	bool transition_day(size_t row, size_t col, const std::vector<Prey*>& next_prey, const std::vector<Predator*>& next_predators);
 
 	void process_position(size_t row, size_t col);
 public:

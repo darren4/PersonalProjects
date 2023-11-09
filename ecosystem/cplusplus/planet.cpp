@@ -3,44 +3,52 @@
 #include <cassert>
 
 
-// --- PlanetPositionState ---
+// --- PlanetPosition ---
 
-PlanetPositionState::PlanetPositionState() : food(0) {}
+PlanetPosition::PlanetPosition() : food(0) {}
 
-void PlanetPositionState::get_organisms(const PlanetPositionState& other) {
-    prey = other.prey;
-    predators = other.predators;
-}
-
-void PlanetPositionState::reset() {
+void PlanetPosition::reset() {
     prey.clear();
     predators.clear();
 }
 
 // --- PlanetPositionAccess ---
 
-PlanetPositionAccess::PlanetPositionAccess(std::mutex* _ref_mutex, PlanetPositionState* _position_ref) : ref_mutex(_ref_mutex), ref(_position_ref) {
-    ref_mutex->lock();
+PlanetPositionAccess::PlanetPositionAccess(PlanetPosition& _position_ref) : predators(&_position_ref.predators), prey(&_position_ref.prey), food(&_position_ref.food), position_mutex(&_position_ref.position_mutex) {
+    position_mutex->lock();
 }
-
-PlanetPositionAccess::PlanetPositionAccess(const PlanetPositionAccess& other) : ref_mutex(other.ref_mutex), ref(other.ref) {}
 
 PlanetPositionAccess& PlanetPositionAccess::operator=(const PlanetPositionAccess& other) {
     if (this == &other)
         return *this;
 
-    ref = other.ref;
+    predators = other.get_predators_ptr();
+    prey = other.get_prey_ptr();
+    food = other.get_food_ptr();
+    position_mutex = other.get_position_mutex_ptr();
 
     return *this;
 }
 
 PlanetPositionAccess::~PlanetPositionAccess() {
-    ref_mutex->unlock();
+    position_mutex->unlock();
 }
 
-// --- PlanetPosition ---
+std::vector<Predator*>* PlanetPositionAccess::get_predators_ptr() const {
+    return predators;
+}
 
-PlanetPosition::PlanetPosition() {}
+std::vector<Prey*>* PlanetPositionAccess::get_prey_ptr() const {
+    return prey;
+}
+
+size_t* PlanetPositionAccess::get_food_ptr() const {
+    return food;
+}
+
+std::mutex* PlanetPositionAccess::get_position_mutex_ptr() const {
+    return position_mutex;
+}
 
 // --- Planet ---
 
@@ -84,12 +92,8 @@ std::vector<std::vector<PlanetPosition*>> Planet::get_grid() const {
     return grid;
 }
 
-PlanetPositionAccess Planet::write_current(size_t row, size_t col) {
+PlanetPositionAccess Planet::write(size_t row, size_t col) {
     assert(row >= 0 && row < height && col >= 0 && col < width);
-    return PlanetPositionAccess(&grid[row][col]->current_mutex, &grid[row][col]->current);
+    return PlanetPositionAccess(&grid[row][col]->position_mutex, &grid[row][col]->);
 }
 
-PlanetPositionAccess Planet::write_next(size_t row, size_t col) {
-    assert(row >= 0 && row < height && col >= 0 && col < width);
-    return PlanetPositionAccess(&grid[row][col]->next_mutex, &grid[row][col]->next);
-}
