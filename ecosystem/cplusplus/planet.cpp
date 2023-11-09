@@ -7,14 +7,14 @@
 
 PlanetPositionState::PlanetPositionState() : food(0) {}
 
-PlanetPositionState& PlanetPositionState::operator=(const PlanetPositionState& other) {
-    if (this == &other) 
-        return *this;
-    
-    predators = other.predators;
+void PlanetPositionState::get_organisms(const PlanetPositionState& other) {
     prey = other.prey;
-    food = other.food;
-    return *this;
+    predators = other.predators;
+}
+
+void PlanetPositionState::reset() {
+    prey.clear();
+    predators.clear();
 }
 
 // --- PlanetPositionAccess ---
@@ -41,15 +41,6 @@ PlanetPositionAccess::~PlanetPositionAccess() {
 // --- PlanetPosition ---
 
 PlanetPosition::PlanetPosition() {}
-
-PlanetPosition& PlanetPosition::operator=(const PlanetPosition& other) {
-    if (this == &other) {
-        return *this;
-    }
-    current = other.current;
-    next = other.next;
-    return *this;
-}
 
 // --- Planet ---
 

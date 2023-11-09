@@ -112,8 +112,7 @@ std::pair<size_t, size_t> Simulator::get_next_location(size_t row, size_t col) {
 
 PlanetPositionAccess Simulator::prepare_organism_move(size_t current_row, size_t current_col) {
     std::pair<size_t, size_t> next_row_col = get_next_location(current_row, current_col);
-    size_t next_row = next_row_col.first, next_col = next_row_col.second;
-    return planet.write_next(next_row, next_col);
+    return planet.write_next(next_row_col.first, next_row_col.second);
 }
 
 void Simulator::play_out_day(size_t row, size_t col) {
@@ -162,7 +161,8 @@ bool Simulator::transition_day(size_t row, size_t col) {
     else if (worker_state == WorkerState::TRANSITION) {
         PlanetPositionAccess current_access = planet.write_current(row, col);
         PlanetPositionAccess next_access = planet.write_next(row, col);
-        *current_access.ref = *next_access.ref;
+        current_access.ref->get_organisms(*next_access.ref);
+        next_access.ref->reset();
         return true;
     }
     else {
@@ -172,6 +172,7 @@ bool Simulator::transition_day(size_t row, size_t col) {
 
 void Simulator::process_position(size_t row, size_t col) {
     for (size_t day = 0; day < day_count; ++day) {
+        printf("processing day %d\n", day);
         wait_for_processing();
         play_out_day(row, col);
         set_worker_state(WorkerState::TRANSITION, true);

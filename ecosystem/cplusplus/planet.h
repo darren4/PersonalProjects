@@ -13,7 +13,10 @@ struct PlanetPositionState {
 
     PlanetPositionState();
     PlanetPositionState(const PlanetPositionState& other) = delete;
-    PlanetPositionState& operator=(const PlanetPositionState& other);
+    PlanetPositionState& operator=(const PlanetPositionState& other) = delete;
+
+    void get_organisms(const PlanetPositionState& other);
+    void reset();
 };
 
 struct PlanetPositionAccess {
@@ -36,7 +39,7 @@ struct PlanetPosition {
 
     PlanetPosition();
     PlanetPosition(const PlanetPosition& other) = delete;
-    PlanetPosition& operator=(const PlanetPosition& other);
+    PlanetPosition& operator=(const PlanetPosition& other) = delete;
 };
 
 class Planet {
