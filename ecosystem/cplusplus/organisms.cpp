@@ -51,7 +51,7 @@ void SpeciesStatus::reset_round() {
 
 // --- Organism ---
 
-Organism::Organism() : alive(true), calorie_count(10) {}
+Organism::Organism() : alive(true), calorie_count(ORGANISM_STARTING_CALORIES) {}
 
 Organism::Organism(const InheritedTraits& inherited_traits) : alive(true), calorie_count(10), traits(inherited_traits) {}
 
