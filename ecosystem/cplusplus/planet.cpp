@@ -7,16 +7,13 @@
 
 PlanetPosition::PlanetPosition() : food(0) {}
 
-void PlanetPosition::reset() {
-    prey.clear();
-    predators.clear();
-}
-
 // --- PlanetPositionAccess ---
 
 PlanetPositionAccess::PlanetPositionAccess(PlanetPosition& _position_ref) : predators(&_position_ref.predators), prey(&_position_ref.prey), food(&_position_ref.food), position_mutex(&_position_ref.position_mutex) {
     position_mutex->lock();
 }
+
+PlanetPositionAccess::PlanetPositionAccess(const PlanetPositionAccess& other) : predators(other.get_predators_ptr()), prey(other.get_prey_ptr()), food(other.get_food_ptr()), position_mutex(other.get_position_mutex_ptr()) {}
 
 PlanetPositionAccess& PlanetPositionAccess::operator=(const PlanetPositionAccess& other) {
     if (this == &other)
@@ -94,6 +91,6 @@ std::vector<std::vector<PlanetPosition*>> Planet::get_grid() const {
 
 PlanetPositionAccess Planet::write(size_t row, size_t col) {
     assert(row >= 0 && row < height && col >= 0 && col < width);
-    return PlanetPositionAccess(&grid[row][col]->position_mutex, &grid[row][col]->);
+    return PlanetPositionAccess(*grid[row][col]);
 }
 

@@ -15,8 +15,6 @@ struct PlanetPosition {
     PlanetPosition();
     PlanetPosition(const PlanetPosition& other) = delete;
     PlanetPosition& operator=(const PlanetPosition& other) = delete;
-
-    void reset();
 };
 
 class PlanetPositionAccess {
@@ -29,7 +27,7 @@ private:
 public:
     PlanetPositionAccess() = delete;
     PlanetPositionAccess(PlanetPosition& _position_ref);
-    PlanetPositionAccess(const PlanetPositionAccess& other) = delete;
+    PlanetPositionAccess(const PlanetPositionAccess& other);
     PlanetPositionAccess& operator=(const PlanetPositionAccess& other);
     ~PlanetPositionAccess();
 

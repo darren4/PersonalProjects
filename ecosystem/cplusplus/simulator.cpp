@@ -29,22 +29,19 @@ void Simulator::wait_for_processing() {
     worker_state_cv.wait(worker_state_lock, [this] { return worker_state == WorkerState::PROCESS; });
 }
 
-void Simulator::populate_survivors(PlanetPositionState* pos,
+void Simulator::populate_survivors(const PlanetPositionAccess& pos,
                                 vector<Prey*>& surviving_prey,
                                 vector<Predator*>& surviving_predators) {
-    std::random_shuffle(pos->prey.begin(), pos->prey.end());
-    std::random_shuffle(pos->predators.begin(), pos->predators.end());
-
-    size_t prey_count = pos->prey.size();
-    size_t predator_count = pos->predators.size();
+    size_t prey_count = pos.get_prey_ptr()->size();
+    size_t predator_count = pos.get_predators_ptr()->size();
     if (predator_count > 0) {
         vector<std::pair<Predator*, vector<Prey*>>> predators_to_prey;
-        for (Predator* predator : pos->predators) {
+        for (Predator* predator : *pos.get_predators_ptr()) {
             predators_to_prey.push_back(std::make_pair(predator, vector<Prey*>()));
         }
         if (prey_count < predator_count) {
             for (size_t prey_idx = 0; prey_idx < prey_count; ++prey_idx) {
-                predators_to_prey[prey_idx].second.push_back(pos->prey[prey_idx]);
+                predators_to_prey[prey_idx].second.push_back((*pos.get_prey_ptr())[prey_idx]);
             }
         }
         else {
@@ -53,7 +50,7 @@ void Simulator::populate_survivors(PlanetPositionState* pos,
                 if (predator_idx == predator_count) {
                     predator_idx = 0;
                 }
-                predators_to_prey[predator_idx].second.push_back(pos->prey[prey_idx]);
+                predators_to_prey[predator_idx].second.push_back((*pos.get_prey_ptr())[prey_idx]);
                 ++predator_idx;
             }
         }
@@ -68,9 +65,9 @@ void Simulator::populate_survivors(PlanetPositionState* pos,
         }
     }
 
-    for (Prey* one_prey : pos->prey) {
+    for (Prey* one_prey : *pos.get_prey_ptr()) {
         if (one_prey->still_alive()) {
-            one_prey->eat_for_day(pos->food);
+            one_prey->eat_for_day(*pos.get_food_ptr());
             if (one_prey->still_alive()) {
                 surviving_prey.push_back(one_prey);
             }
@@ -118,7 +115,8 @@ void Simulator::play_out_day(size_t row, size_t col, vector<Prey*>& next_prey, v
     reproduce_organisms(next_prey);
     reproduce_organisms(next_predators);
 
-    pos->reset();
+    pos.get_prey_ptr()->clear();
+    pos.get_predators_ptr()->clear();
 }
 
 bool Simulator::get_ecosystem_status() {
@@ -151,7 +149,6 @@ bool Simulator::transition_day(size_t row, size_t col, const std::vector<Prey*>&
         return false;
     }
     else if (worker_state == WorkerState::TRANSITION) {
-        PlanetPositionAccess access = planet.write(row, col);
         for (Prey* one_prey : next_prey) {
             PlanetPositionAccess access = prepare_organism_move(row, col);
             access.get_prey_ptr()->push_back(one_prey);
@@ -169,8 +166,6 @@ bool Simulator::transition_day(size_t row, size_t col, const std::vector<Prey*>&
 
 void Simulator::process_position(size_t row, size_t col) {
     for (size_t day = 0; day < day_count; ++day) {
-        printf("processing day %d\n", day);
-
         wait_for_processing();
 
         vector<Prey*> next_prey;
