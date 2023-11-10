@@ -78,6 +78,16 @@ void Simulator::populate_survivors(const PlanetPositionAccess& pos,
     }
 }
 
+template <class T>
+void Simulator::reproduce_organisms(std::vector<T*>& organisms) {
+    size_t organism_count = organisms.size();
+    for (size_t org_right_idx = 1; org_right_idx < organism_count; org_right_idx += 2) {
+        organisms[org_right_idx - 1]->reproduce(organisms[org_right_idx], organisms);
+    }
+}
+template void Simulator::reproduce_organisms(std::vector<Prey*>& organisms);
+template void Simulator::reproduce_organisms(std::vector<Predator*>& organisms);
+
 std::pair<size_t, size_t> Simulator::get_next_location(size_t row, size_t col) {
     vector<std::pair<size_t, size_t>> valid_positions;
     size_t planet_height = planet.get_height();

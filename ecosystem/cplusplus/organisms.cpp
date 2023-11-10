@@ -1,5 +1,6 @@
 #include "organisms.h"
 #include "random_numbers.h"
+#include "simulation_parameters.h"
 
 #include <cstdlib>
 #include <vector>
@@ -8,10 +9,9 @@
 // --- InheritedTraits ---
 
 InheritedTraits::InheritedTraits() {
-    // TODO: move this out
-    strength = random_int(0, 5);
-    offspring_capacity = random_int(0, 5);
-    calorie_usage = random_int(0, 5);
+    strength = random_int(MIN_ORGANISM_STRENGTH, MAX_ORGANISM_STRENGTH);
+    offspring_capacity = random_int(MIN_ORGANISM_OFFSPRING_CAPACITY, MAX_ORGANISM_OFFSPRING_CAPACITY);
+    calorie_usage = random_int(MIN_ORGANISM_CALORIE_USAGE, MAX_ORGANISM_CALORIE_USAGE);
 }
 
 InheritedTraits::InheritedTraits(size_t _strength, size_t _offspring_capacity, size_t _calorie_usage):
