@@ -33,7 +33,7 @@ private:
 
 	PlanetPositionAccess prepare_organism_move(size_t current_row, size_t current_col);
 
-	bool get_ecosystem_status();
+	bool log_ecosystem_status();
 
 	void wait_for_processing();
 	void play_out_day(size_t row, size_t col, std::vector<Prey*>& next_prey, std::vector<Predator*>& next_predators);

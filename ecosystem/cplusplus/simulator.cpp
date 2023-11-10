@@ -129,8 +129,10 @@ void Simulator::play_out_day(size_t row, size_t col, vector<Prey*>& next_prey, v
     pos.get_predators_ptr()->clear();
 }
 
-bool Simulator::get_ecosystem_status() {
-    return true;
+bool Simulator::log_ecosystem_status() {
+    Prey::log_prey_status();
+    Predator::log_predator_status();
+    return Organism::log_organism_status();
 }
 
 void Simulator::set_worker_state(WorkerState next_worker_state, bool check_ecosystem_health) {
@@ -138,7 +140,7 @@ void Simulator::set_worker_state(WorkerState next_worker_state, bool check_ecosy
     ++ready;
     if (ready == worker_count) {
         ready = 0;
-        if (check_ecosystem_health && !get_ecosystem_status()) {
+        if (check_ecosystem_health && !log_ecosystem_status()) {
             next_worker_state = WorkerState::DONE;
         }
         std::unique_lock<std::mutex> worker_state_lock(worker_state_mutex);

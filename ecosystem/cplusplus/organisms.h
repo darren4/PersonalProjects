@@ -20,7 +20,8 @@ struct InheritedTraits {
     InheritedTraits& operator=(const InheritedTraits& other);
 };
 
-struct SpeciesStatus {
+class SpeciesStatus {
+private:
     size_t alive_count;
     std::mutex alive_count_mutex;
 
@@ -35,11 +36,19 @@ struct SpeciesStatus {
 
     InheritedTraits inherited_traits_totals;
 
+    void save_to_file();
+    void reset_round();
+
+public:
     SpeciesStatus();
     SpeciesStatus(const SpeciesStatus& other) = delete;
     SpeciesStatus operator=(const SpeciesStatus& other) = delete;
 
-    void reset_round();
+    void created(const InheritedTraits& organism_traits);
+    void eaten(const InheritedTraits& organism_traits);
+    void starved(const InheritedTraits& organism_traits);
+
+    bool log_round_and_reset();
 };
 
 class Organism {
@@ -51,7 +60,7 @@ protected:
     InheritedTraits traits;
 
 public:
-    static bool display_status();
+    static bool log_organism_status();
 
     Organism();
     Organism(const Organism& other) = delete;
@@ -67,6 +76,8 @@ private:
     static SpeciesStatus status_of_prey;
 
 public:
+    static bool log_prey_status();
+
     static Prey* get_new();
     static Prey* get_new_with_traits(const InheritedTraits& inherited_traits);
 
@@ -86,6 +97,8 @@ private:
     static SpeciesStatus status_of_predators;
 
 public:
+    static bool log_predator_status();
+
     static Predator* get_new();
     static Predator* get_new_with_traits(const InheritedTraits& inherited_traits);
 

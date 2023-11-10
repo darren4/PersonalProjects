@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <vector>
 #include <algorithm>
+#include <mutex>
 
 // --- InheritedTraits ---
 
@@ -17,10 +18,10 @@ InheritedTraits::InheritedTraits() {
 InheritedTraits::InheritedTraits(size_t _strength, size_t _offspring_capacity, size_t _calorie_usage):
     strength(_strength), offspring_capacity(_offspring_capacity), calorie_usage(_calorie_usage) {}
 
-InheritedTraits::InheritedTraits(const InheritedTraits& inherited_traits):
-    strength(inherited_traits.strength),
-    offspring_capacity(inherited_traits.offspring_capacity),
-    calorie_usage(inherited_traits.calorie_usage) {}
+InheritedTraits::InheritedTraits(const InheritedTraits& other):
+    strength(other.strength),
+    offspring_capacity(other.offspring_capacity),
+    calorie_usage(other.calorie_usage) {}
 
 InheritedTraits::InheritedTraits(const InheritedTraits& first, const InheritedTraits& second) {
     strength = (random_int(0, 1)) ? first.strength : second.strength;
@@ -28,15 +29,21 @@ InheritedTraits::InheritedTraits(const InheritedTraits& first, const InheritedTr
     calorie_usage = (random_int(0, 1)) ? first.calorie_usage : second.calorie_usage;
 }
 
-InheritedTraits& InheritedTraits::operator=(const InheritedTraits& inherited_traits) {
-    if (this == &inherited_traits)
+InheritedTraits& InheritedTraits::operator=(const InheritedTraits& other) {
+    if (this == &other)
         return *this;
 
-    strength = inherited_traits.strength;
-    offspring_capacity = inherited_traits.offspring_capacity;
-    calorie_usage = inherited_traits.calorie_usage;
+    strength = other.strength;
+    offspring_capacity = other.offspring_capacity;
+    calorie_usage = other.calorie_usage;
 
     return *this;
+}
+
+InheritedTraits& InheritedTraits::operator+=(const InheritedTraits& other) {
+    strength += other.strength;
+    offspring_capacity += other.offspring_capacity;
+    calorie_usage += other.offspring_capacity;
 }
 
 // --- SpeciesStatus ---
@@ -49,7 +56,16 @@ void SpeciesStatus::reset_round() {
     starved_in_round = 0;
 }
 
+void SpeciesStatus::created(const InheritedTraits& organism_traits) {
+    std::unique_lock<std::mutex> inherited_traits_totals_lock(inherited_traits_totals_mutex);
+    inherited_traits_totals += organism_traits;
+}
+
 // --- Organism ---
+
+bool Organism::log_organism_status() {
+    return Organism::status_of_organisms.log_round_and_reset();
+}
 
 Organism::Organism() : alive(true), calorie_count(ORGANISM_STARTING_CALORIES) {}
 
@@ -65,6 +81,10 @@ bool Organism::still_alive() const {
 
 // --- Prey ---
 
+bool Prey::log_prey_status() {
+    return Prey::status_of_prey.log_round_and_reset();
+}
+
 Prey* Prey::get_new() {
     return new Prey();
 }
@@ -73,13 +93,20 @@ Prey* Prey::get_new_with_traits(const InheritedTraits& inherited_traits) {
     return new Prey(inherited_traits);
 }
 
-Prey::Prey() {}
-Prey::Prey(const InheritedTraits& inherited_traits) : Organism(inherited_traits) {}
+Prey::Prey() {
+    Prey::status_of_prey.created(traits);
+}
+Prey::Prey(const InheritedTraits& inherited_traits) : Organism(inherited_traits) {
+    Prey::status_of_prey.created(traits);
+}
 
 void Prey::eat_for_day(size_t food_amount) {
     if (alive) {
         calorie_count += (food_amount - traits.calorie_usage);
-        alive = calorie_count > 0;
+        if (calorie_count <= 0) {
+            alive = false;
+            Prey::status_of_prey.starved(traits);
+        }
     }
 }
 
@@ -102,9 +129,14 @@ size_t Prey::get_calorie_count() const {
 
 void Prey::eaten() {
     alive = false;
+    Prey::status_of_prey.eaten(traits);
 }
 
 // --- Predator ---
+
+bool Predator::log_predator_status() {
+    return Predator::status_of_predators.log_round_and_reset();
+}
 
 Predator* Predator::get_new() {
     return new Predator();
@@ -114,9 +146,13 @@ Predator* Predator::get_new_with_traits(const InheritedTraits& inherited_traits)
     return new Predator(inherited_traits);
 }
 
-Predator::Predator() {}
+Predator::Predator() {
+    Predator::status_of_predators.created(traits);
+}
 
-Predator::Predator(const InheritedTraits& inherited_traits) : Organism(inherited_traits) {}
+Predator::Predator(const InheritedTraits& inherited_traits) : Organism(inherited_traits) {
+    Predator::status_of_predators.created(traits);
+}
 
 void Predator::eat_for_day(std::vector<Prey*> prey) {
     calorie_count -= traits.calorie_usage;
@@ -128,6 +164,7 @@ void Predator::eat_for_day(std::vector<Prey*> prey) {
     }
     if (calorie_count <= 0) {
         alive = false;
+        Predator::status_of_predators.starved(traits);
     }
 }
 
