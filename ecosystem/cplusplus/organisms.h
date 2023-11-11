@@ -5,7 +5,8 @@
 #include <vector>
 #include <mutex>
 #include <algorithm>
-
+#include <string>
+#include <fstream>
 
 
 struct InheritedTraits {
@@ -18,21 +19,22 @@ struct InheritedTraits {
     InheritedTraits(const InheritedTraits& other);
     InheritedTraits(const InheritedTraits& first, const InheritedTraits& second);
     InheritedTraits& operator=(const InheritedTraits& other);
+    InheritedTraits& operator+=(const InheritedTraits& other);
+    InheritedTraits& operator-=(const InheritedTraits& other);
 };
 
 class SpeciesStatus {
 private:
+    size_t round;
+    std::string filename;
+    std::ofstream filestream;
+
+    std::mutex status_mutex;
+
     size_t alive_count;
-    std::mutex alive_count_mutex;
-
     size_t created_in_round;
-    std::mutex created_in_round_mutex;
-
     size_t eaten_in_round;
-    std::mutex eaten_in_round_mutex;
-
     size_t starved_in_round;
-    std::mutex starved_in_round_mutex;
 
     InheritedTraits inherited_traits_totals;
 
@@ -44,22 +46,23 @@ public:
     SpeciesStatus(const SpeciesStatus& other) = delete;
     SpeciesStatus operator=(const SpeciesStatus& other) = delete;
 
+    void set_filename(std::string name);
+    bool log_round_and_reset();
+
     void created(const InheritedTraits& organism_traits);
     void eaten(const InheritedTraits& organism_traits);
     void starved(const InheritedTraits& organism_traits);
-
-    bool log_round_and_reset();
 };
 
 class Organism {
 protected:
     static SpeciesStatus status_of_organisms;
-
     bool alive;
     size_t calorie_count;
     InheritedTraits traits;
 
 public:
+    static void init_organism_logger();
     static bool log_organism_status();
 
     Organism();
@@ -76,6 +79,7 @@ private:
     static SpeciesStatus status_of_prey;
 
 public:
+    static void init_prey_logger();
     static bool log_prey_status();
 
     static Prey* get_new();
@@ -97,6 +101,7 @@ private:
     static SpeciesStatus status_of_predators;
 
 public:
+    static void init_predator_logger();
     static bool log_predator_status();
 
     static Predator* get_new();

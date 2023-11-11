@@ -198,7 +198,11 @@ void Simulator::process_position(size_t row, size_t col) {
 void Simulator::run_simulation(){
     cout << "Initializing simulation\n";
     srand(0);
-
+    
+    Organism::init_organism_logger();
+    Prey::init_prey_logger();
+    Predator::init_predator_logger();
+    
     for (size_t i = 0; i < START_FOOD_SOURCE_COUNT; ++i) {
         size_t row = random_int(0, PLANET_GRID_HEIGHT - 1);
         size_t col = random_int(0, PLANET_GRID_WIDTH - 1);
@@ -219,6 +223,7 @@ void Simulator::run_simulation(){
         PlanetPositionAccess access = planet.write(row, col);
         access.get_predators_ptr()->push_back(Predator::get_new());
     }
+    log_ecosystem_status();
     
     cout << "Starting workers\n";
     vector<std::thread> threads;

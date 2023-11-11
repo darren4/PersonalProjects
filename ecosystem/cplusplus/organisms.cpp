@@ -44,24 +44,93 @@ InheritedTraits& InheritedTraits::operator+=(const InheritedTraits& other) {
     strength += other.strength;
     offspring_capacity += other.offspring_capacity;
     calorie_usage += other.offspring_capacity;
+    return *this;
+}
+
+InheritedTraits& InheritedTraits::operator-=(const InheritedTraits& other) {
+    strength -= other.strength;
+    offspring_capacity -= other.offspring_capacity;
+    calorie_usage -= other.offspring_capacity;
+    return *this;
 }
 
 // --- SpeciesStatus ---
 
-SpeciesStatus::SpeciesStatus() : alive_count(0), created_in_round(0), eaten_in_round(0), starved_in_round(0) {}
+SpeciesStatus::SpeciesStatus() : round(0), filename(""), alive_count(0), created_in_round(0), eaten_in_round(0), starved_in_round(0) {}
+
+void SpeciesStatus::save_to_file() {
+    filestream << round << ",";
+    filestream << alive_count << ",";
+    filestream << created_in_round << ",";
+    filestream << eaten_in_round << ",";
+    filestream << starved_in_round << ",";
+    filestream << inherited_traits_totals.strength / alive_count << ",";
+    filestream << inherited_traits_totals.offspring_capacity / alive_count << ",";
+    filestream << inherited_traits_totals.calorie_usage / alive_count;
+    filestream << "\n";
+    ++round;
+}
 
 void SpeciesStatus::reset_round() {
+    std::unique_lock<std::mutex> status_lock(status_mutex);
     created_in_round = 0;
     eaten_in_round = 0;
     starved_in_round = 0;
 }
 
+void SpeciesStatus::set_filename(std::string name) {
+    filename = name;
+    filestream = std::ofstream(filename);
+    filestream << "round,";
+    filestream << "alive_count,";
+    filestream << "created_in_round,";
+    filestream << "eaten_in_round,";
+    filestream << "starved_in_round,";
+    filestream << "avg_strength,";
+    filestream << "avg_offspring_capacity,";
+    filestream << "avg_calorie_usage";
+    filestream << "\n";
+}
+
+bool SpeciesStatus::log_round_and_reset() {
+    if (alive_count > 0) {
+        save_to_file();
+        reset_round();
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
 void SpeciesStatus::created(const InheritedTraits& organism_traits) {
-    std::unique_lock<std::mutex> inherited_traits_totals_lock(inherited_traits_totals_mutex);
+    std::unique_lock<std::mutex> status_lock(status_mutex);
     inherited_traits_totals += organism_traits;
+    ++created_in_round;
+    ++alive_count;
+}
+
+void SpeciesStatus::eaten(const InheritedTraits& organism_traits) {
+    std::unique_lock<std::mutex> status_lock(status_mutex);
+    inherited_traits_totals -= organism_traits;
+    ++eaten_in_round;
+    --alive_count;
+}
+
+void SpeciesStatus::starved(const InheritedTraits& organism_traits) {
+    std::unique_lock<std::mutex> status_lock(status_mutex);
+    inherited_traits_totals -= organism_traits;
+    ++starved_in_round;
+    --alive_count;
 }
 
 // --- Organism ---
+
+SpeciesStatus Organism::status_of_organisms;
+
+void Organism::init_organism_logger() {
+    Organism::status_of_organisms.set_filename("organism_status.csv");
+}
 
 bool Organism::log_organism_status() {
     return Organism::status_of_organisms.log_round_and_reset();
@@ -81,6 +150,12 @@ bool Organism::still_alive() const {
 
 // --- Prey ---
 
+SpeciesStatus Prey::status_of_prey;
+
+void Prey::init_prey_logger() {
+    Prey::status_of_prey.set_filename("prey_status.csv");
+}
+
 bool Prey::log_prey_status() {
     return Prey::status_of_prey.log_round_and_reset();
 }
@@ -95,9 +170,11 @@ Prey* Prey::get_new_with_traits(const InheritedTraits& inherited_traits) {
 
 Prey::Prey() {
     Prey::status_of_prey.created(traits);
+    Organism::status_of_organisms.created(traits);
 }
 Prey::Prey(const InheritedTraits& inherited_traits) : Organism(inherited_traits) {
     Prey::status_of_prey.created(traits);
+    Organism::status_of_organisms.created(traits);
 }
 
 void Prey::eat_for_day(size_t food_amount) {
@@ -106,6 +183,7 @@ void Prey::eat_for_day(size_t food_amount) {
         if (calorie_count <= 0) {
             alive = false;
             Prey::status_of_prey.starved(traits);
+            Organism::status_of_organisms.starved(traits);
         }
     }
 }
@@ -130,9 +208,16 @@ size_t Prey::get_calorie_count() const {
 void Prey::eaten() {
     alive = false;
     Prey::status_of_prey.eaten(traits);
+    Organism::status_of_organisms.eaten(traits);
 }
 
 // --- Predator ---
+
+SpeciesStatus Predator::status_of_predators;
+
+void Predator::init_predator_logger() {
+    Predator::status_of_predators.set_filename("predators_status.csv");
+}
 
 bool Predator::log_predator_status() {
     return Predator::status_of_predators.log_round_and_reset();
@@ -148,10 +233,12 @@ Predator* Predator::get_new_with_traits(const InheritedTraits& inherited_traits)
 
 Predator::Predator() {
     Predator::status_of_predators.created(traits);
+    Organism::status_of_organisms.created(traits);
 }
 
 Predator::Predator(const InheritedTraits& inherited_traits) : Organism(inherited_traits) {
     Predator::status_of_predators.created(traits);
+    Organism::status_of_organisms.created(traits);
 }
 
 void Predator::eat_for_day(std::vector<Prey*> prey) {
@@ -165,6 +252,7 @@ void Predator::eat_for_day(std::vector<Prey*> prey) {
     if (calorie_count <= 0) {
         alive = false;
         Predator::status_of_predators.starved(traits);
+        Organism::status_of_organisms.starved(traits);
     }
 }
 
