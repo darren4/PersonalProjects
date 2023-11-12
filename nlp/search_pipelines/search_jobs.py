@@ -1,22 +1,27 @@
 # %%
-from glove.read_vectors import get_vector_dict
-from utils.process_corpus import StringsToVectors, NormalizeVectorLens
+from nlp.glove.read_vectors import get_vector_dict
+from nlp.utils.process_corpus import StringsToVectors, NormalizeVectorLens
+from nlp.utils.vector_search import SimpleVectorSearch
+
 import pandas as pd
-from utils.vector_search import SimpleVectorSearch
 import numpy as np
+import os
 
 # %%
 DESCRIPTION, DESCRIPTION_VECTOR = "description", "vector"
-securities_df = pd.read_csv(f"data/jobs.csv")
+securities_df = pd.read_csv(f"{os.environ.get('PYTHONPATH')}/nlp/data/jobs.csv")
 
 # %%
-securities_embeddings_dict, embed_len = get_vector_dict(f"glove/data/jobs_vectors.txt")
+securities_embeddings_dict, embed_len = get_vector_dict(
+    f"{os.environ.get('PYTHONPATH')}/nlp/glove/embeddings/jobs_vectors.txt"
+)
 
 # %%
 strings_to_vectors = StringsToVectors(securities_embeddings_dict, embed_len)
 process_columns = {DESCRIPTION: DESCRIPTION_VECTOR}
 securities_df, max_len = strings_to_vectors.to_vectors(securities_df, process_columns)
-print(max_len)
+print(f"max_len: {max_len}")
+print(f"Unknown word len: {strings_to_vectors.unknown_token_count}")
 
 # %%
 vector_normalizer = NormalizeVectorLens(max_len, embed_len, "ADJUST_LEN")
