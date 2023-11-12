@@ -1,24 +1,31 @@
+from nlp.utils.cleaning import sentence_to_list
+from nlp.utils.list_normalization import adjust_list_len
+
 import numpy as np
-from utils.cleaning import sentence_to_list
 import pandas as pd
-from utils.list_normalization import adjust_list_len
 
 
 class StringsToVectors:
     def __init__(self, _word_vector_dict, _embed_len):
         self.max_len = 0
         self.word_vector_dict = _word_vector_dict
+        self.unknown_vector_missing = "<unk>" not in self.word_vector_dict
         self.embed_len = _embed_len
         self.process_columns = None
+
+        self.total_tokens = 0
+        self.unknown_token_count = 0
 
     def to_vector(self, string: str) -> np.array:
         words = sentence_to_list(string)
         self.max_len = max(len(words), self.max_len)
         vectors = []
+        self.total_tokens += len(words)
         for i in range(len(words)):
             try:
                 vectors.append(self.word_vector_dict[words[i]])
             except KeyError:
+                self.unknown_token_count += 1
                 try:
                     vectors.append(self.word_vector_dict["<unk>"])
                 except KeyError:
@@ -36,6 +43,12 @@ class StringsToVectors:
     def to_vectors(self, df: pd.DataFrame, _process_columns: dict) -> tuple:
         self.process_columns = _process_columns
         return df.apply(self._process_row, axis=1), self.max_len
+
+    def last_unknown_prop(self):
+        prop = self.unknown_token_count / self.total_tokens
+        self.unknown_token_count = 0
+        self.total_tokens = 0
+        return prop
 
 
 class NormalizeVectorLens:
