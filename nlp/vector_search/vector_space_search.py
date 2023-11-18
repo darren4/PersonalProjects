@@ -16,10 +16,11 @@ class MultiDimSearch:
     ):
         self._embedding_vector_len = emedding_vector_len
 
-        self._max_index = NORM_EMBED_RANGE[1] - NORM_EMBED_RANGE[0] + 1
+        self._search_range = NORM_EMBED_RANGE[1] - NORM_EMBED_RANGE[0] + 1
+        self._max_index = self._search_range - 1
 
         self._index = np.empty(
-            (self._embedding_vector_len, self._max_index), dtype=object
+            (self._embedding_vector_len, self._search_range), dtype=object
         )
         for r in range(self._index.shape[0]):
             for c in range(self._index.shape[1]):
@@ -64,17 +65,21 @@ class MultiDimSearch:
         )
         search = {}
         results = []
-        for delta in range(SEARCH_DISTANCE):
-            for embed_idx in range(self._embedding_vector_len):
-                next_embed = min(embed_vector[embed_idx] + delta, self._max_index)
-                next_embed = max(embed_vector[embed_idx] + delta, 0)
-                included_doc_idxs = self._index[embed_idx, int(embed_vector[embed_idx])]
-                for doc_idx in included_doc_idxs:
-                    if doc_idx not in search:
-                        search[doc_idx] = self._CorpusEmbedding(found_embedding_cutoff)
-                    if search[doc_idx].add(next_embed):
-                        print(f"adding {next_embed}")
-                        results.append(self._corpus[doc_idx])
-                if len(results) >= approx_max_result_count:
-                    return results
+        for abs_delta in range(SEARCH_DISTANCE):
+            if abs_delta > 0:
+                delta_options = [abs_delta, -abs_delta]
+            else:
+                delta_options = [abs_delta]
+            for delta in delta_options:
+                for embed_idx in range(self._embedding_vector_len):
+                    next_embed = min(embed_vector[embed_idx] + delta, self._max_index)
+                    next_embed = max(next_embed, 0)
+                    included_doc_idxs = self._index[embed_idx, int(next_embed)]
+                    for doc_idx in included_doc_idxs:
+                        if doc_idx not in search:
+                            search[doc_idx] = self._CorpusEmbedding(found_embedding_cutoff)
+                        if search[doc_idx].add(next_embed):
+                            results.append(self._corpus[doc_idx])
+                    if len(results) >= approx_max_result_count:
+                        return results
         return results
