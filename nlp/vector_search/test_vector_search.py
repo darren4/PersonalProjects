@@ -1,15 +1,15 @@
-from nlp.vector_search.vector_space_search import MultiDimSearch
+from nlp.vector_search.coverage_search import CoverageSearch
 
 import numpy as np
 
 
-def test_create_small():
+def test_multi_dim_search():
     embedding_len = 2
     corpus_embeddings = [
         (np.array([0.18, 0.249]), "cat"),
         (np.array([0.9999, 1.0]), "dog"),
     ]
-    search = MultiDimSearch(embedding_len, corpus_embeddings)
+    search = CoverageSearch(corpus_embeddings, embedding_len)
     assert search._index[0, 118][0] == 0
     assert search._index[1, 124][0] == 0
     assert search._index[0, 199][0] == 1
@@ -23,4 +23,4 @@ def test_create_small():
 
 
 if __name__ == "__main__":
-    test_create_small()
+    test_multi_dim_search()
