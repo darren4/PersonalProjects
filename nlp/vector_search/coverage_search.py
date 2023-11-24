@@ -11,10 +11,15 @@ COVERED_EMBED_CUTOFF_PROP: Final[float] = 0.7
 class CoverageSearch:
     def __init__(
         self,
-        corpus_embed_str_list: List[Tuple[np.array, str]],
-        emedding_vector_len: int,
+        corpus: List[str],
+        embeddings: List[np.array],
+        # corpus_embed_str_list: List[Tuple[np.array, str]],
     ):
-        self._embedding_vector_len = emedding_vector_len
+        if len(corpus) != len(embeddings):
+            raise ValueError(
+                f"Corpus length {len(corpus)} does not equal embeddings length {len(embeddings)}"
+            )
+        self._embedding_vector_len = len(embeddings[0])
 
         self._search_range = NORM_EMBED_RANGE[1] - NORM_EMBED_RANGE[0] + 1
         self._max_index = self._search_range - 1
@@ -27,8 +32,8 @@ class CoverageSearch:
                 self._index[r, c] = []
 
         self._corpus = []
-        for corpus_idx in range(len(corpus_embed_str_list)):
-            embed_vector, doc = corpus_embed_str_list[corpus_idx]
+        for corpus_idx in range(len(corpus)):
+            embed_vector, doc = embeddings[corpus_idx], corpus[corpus_idx]
             self._corpus.append(doc)
             for embed_idx in range(self._embedding_vector_len):
                 norm_embed = self._normalize_embed_value(embed_vector[embed_idx])
@@ -77,7 +82,9 @@ class CoverageSearch:
                     included_doc_idxs = self._index[embed_idx, int(next_embed)]
                     for doc_idx in included_doc_idxs:
                         if doc_idx not in search:
-                            search[doc_idx] = self._CoveredEmbeddings(found_embedding_cutoff)
+                            search[doc_idx] = self._CoveredEmbeddings(
+                                found_embedding_cutoff
+                            )
                         if search[doc_idx].add(next_embed):
                             results.append(self._corpus[doc_idx])
                     if len(results) >= approx_max_result_count:

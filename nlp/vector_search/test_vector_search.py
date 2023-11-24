@@ -4,12 +4,12 @@ import numpy as np
 
 
 def test_multi_dim_search():
-    embedding_len = 2
-    corpus_embeddings = [
-        (np.array([0.18, 0.249]), "cat"),
-        (np.array([0.9999, 1.0]), "dog"),
+    embeddings = [np.array([0.18, 0.249]), np.array([0.9999, 1.0])]
+    corpus = [
+        "cat",
+        "dog",
     ]
-    search = CoverageSearch(corpus_embeddings, embedding_len)
+    search = CoverageSearch(corpus, embeddings)
     assert search._index[0, 118][0] == 0
     assert search._index[1, 124][0] == 0
     assert search._index[0, 199][0] == 1
