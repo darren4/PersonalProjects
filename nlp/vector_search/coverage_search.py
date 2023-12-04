@@ -13,7 +13,6 @@ class CoverageSearch:
         self,
         corpus: List[str],
         embeddings: List[np.array],
-        # corpus_embed_str_list: List[Tuple[np.array, str]],
     ):
         if len(corpus) != len(embeddings):
             raise ValueError(
@@ -60,9 +59,10 @@ class CoverageSearch:
         self, embed_vector: np.array, approx_max_result_count=DEFAULT_MAX_RESULT_COUNT
     ) -> List[str]:
         assert embed_vector.shape[0] == self._embedding_vector_len
+        embed_vector_copy = np.copy(embed_vector)
         for embed_idx in range(self._embedding_vector_len):
-            embed_vector[embed_idx] = self._normalize_embed_value(
-                embed_vector[embed_idx]
+            embed_vector_copy[embed_idx] = self._normalize_embed_value(
+                embed_vector_copy[embed_idx]
             )
 
         found_embedding_cutoff = int(
@@ -77,7 +77,7 @@ class CoverageSearch:
                 delta_options = [abs_delta]
             for delta in delta_options:
                 for embed_idx in range(self._embedding_vector_len):
-                    next_embed = min(embed_vector[embed_idx] + delta, self._max_index)
+                    next_embed = min(embed_vector_copy[embed_idx] + delta, self._max_index)
                     next_embed = max(next_embed, 0)
                     included_doc_idxs = self._index[embed_idx, int(next_embed)]
                     for doc_idx in included_doc_idxs:
