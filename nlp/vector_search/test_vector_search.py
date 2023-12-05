@@ -11,11 +11,12 @@ def test_coverage_search():
     ]
     search = CoverageSearch(corpus, embeddings)
 
-    assert search.search(np.array([-0.18, 0.249]))[0] == "cat"
-    assert search.search(np.array([-0.10, 0.30]))[0] == "cat"
+    assert search.search(np.array([-0.18, 0.249])) == ["cat"]
+    assert search.search(np.array([-0.10, 0.30])) == ["cat"]
+    assert search.search(np.array([-0.10, 0.2])) == ["cat"]
 
-    assert search.search(np.array([0.9999, 1.0]))[0] == "dog"
-    assert search.search(np.array([0.95, 0.92]))[0] == "dog"
+    assert search.search(np.array([0.9999, 1.0])) == ["dog"]
+    assert search.search(np.array([0.95, 0.92])) == ["dog"]
 
 
 if __name__ == "__main__":

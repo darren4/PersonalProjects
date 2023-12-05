@@ -47,10 +47,14 @@ class CoverageSearch:
         def __init__(self, covered_embed_cutoff):
             self.covered_embeddings = set()
             self._covered_embed_cutoff = covered_embed_cutoff
+            self.added = False
 
         def add(self, dim):
+            if self.added:
+                return False
             self.covered_embeddings.add(dim)
             if len(self.covered_embeddings) >= self._covered_embed_cutoff:
+                self.added = True
                 return True
             else:
                 return False
@@ -85,7 +89,7 @@ class CoverageSearch:
                             search[doc_idx] = self._CoveredEmbeddings(
                                 found_embedding_cutoff
                             )
-                        if search[doc_idx].add(next_embed):
+                        if search[doc_idx].add(embed_idx):
                             results.append(self._corpus[doc_idx])
                     if len(results) >= approx_max_result_count:
                         return results
