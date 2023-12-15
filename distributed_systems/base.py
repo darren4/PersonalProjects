@@ -19,15 +19,17 @@ THREAD = "THREAD"
 
 class BaseProcess(ABC):
     """
-    Rule: no thread controls (like threading.Lock)
+    Rules:
+        1. No thread controls (like threading.Lock)
+        2. Process communication must go through helper functions
     """
 
     input = None
+    output = None
     shared_state = {}
 
-    def __init__(self, id, connecting_ids):
+    def __init__(self, id):
         self._id = id
-        self._connecting_ids = connecting_ids
         self._inbox = queue.Queue()
 
     @classmethod
@@ -41,7 +43,10 @@ class BaseProcess(ABC):
         self._inbox.put({SRC: source_id, MSG: msg})
 
     def read_msg(self):
-        return self._inbox.get()
+        try:
+            return self._inbox.get()
+        except queue.Empty:
+            return None
 
     def send_msg(self, target_id, msg):
         DistributedSystem.msg_to_process(self.get_id(), target_id, msg)
