@@ -50,7 +50,6 @@ class Guard(BaseProcess):
                         self.send_msg(int(msg[MSG]), False)
             else:
                 time.sleep(0.1)
-
         self.complete()
 
 
@@ -90,7 +89,7 @@ class Worker(BaseProcess):
 
 
 if __name__ == "__main__":
-    system_input = "000101111000010010"
+    system_input = "000101111000010010000101111000010010"
     processes = [
         Manager(MANAGER_ID),
         Guard(GUARD_ID),
@@ -99,4 +98,4 @@ if __name__ == "__main__":
     ]
     DistributedSystem.process_input(system_input, processes)
     time.sleep(2)
-    assert BaseProcess.output == 7
+    assert BaseProcess.output == 14

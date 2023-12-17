@@ -1,7 +1,10 @@
+from distributed_systems import faults
+
 import queue
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Dict
 from threading import Lock, Thread
+
 
 """
 Simple User Journey
@@ -13,15 +16,13 @@ Simple User Journey
 
 SRC = "SOURCE"
 MSG = "MESSAGE"
-PROCESS = "PROCESS"
-THREAD = "THREAD"
 
 
 class BaseProcess(ABC):
     """
     Rules:
-        1. No thread controls (like threading.Lock)
-        2. Process communication must go through helper functions
+        1. Do not apply thread controls (like threading.Lock) to static variables
+        2. Inter-process communication must go through helper functions
     """
 
     input = None
@@ -61,27 +62,27 @@ class BaseProcess(ABC):
 
 
 class DistributedSystem:
-    _processes = {}
+    _processes : Dict[int, BaseProcess] = {}
     _processes_lock = Lock()
 
     @classmethod
     def process_input(cls, input, processes: List[BaseProcess]):
         BaseProcess.set_input(input)
         with cls._processes_lock:
+            threads : List[Thread] = []
             for process in processes:
-                cls._processes[process.get_id()] = {
-                    PROCESS: process,
-                    THREAD: Thread(target=process.start),
-                }
-
-            for process in cls._processes.values():
-                process[THREAD].start()
+                cls._processes[process.get_id()] = process
+                threads.append(Thread(target=process.start))
+            for thread in threads:
+                thread.start()
 
     @classmethod
     def msg_to_process(cls, source_id, target_id, msg):
+        if faults.message_not_sent():
+            return
         try:
             with cls._processes_lock:
-                cls._processes[target_id][PROCESS].receive_msg(source_id, msg)
+                cls._processes[target_id].receive_msg(source_id, msg)
         except KeyError:
             raise ValueError(f"process {target_id} does not exist")
 
