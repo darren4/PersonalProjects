@@ -24,7 +24,6 @@ class Process(BaseProcess):
 
 
 class Manager(Process):
-
     def start(self):
         BaseProcess.output = 0
         bite_size = 5
@@ -65,14 +64,13 @@ class Guard(BaseProcess):
 
 
 class Worker(Process):
-
     def _process_window(self, bounds):
-        input_window = BaseProcess.input[bounds[0]: bounds[1]]
+        input_window = BaseProcess.input[bounds[0] : bounds[1]]
         one_count = 0
         for char in input_window:
             if char == "1":
                 one_count += 1
-        
+
         holding_lock = False
         while not holding_lock:
             self.send_msg(GUARD_ID)

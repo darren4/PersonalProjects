@@ -62,7 +62,7 @@ class BaseProcess(ABC):
 
 
 class DistributedSystem:
-    _processes : Dict[int, BaseProcess] = {}
+    _processes: Dict[int, BaseProcess] = {}
     _processes_lock = Lock()
     _processes_cv = Condition(_processes_lock)
 
@@ -70,7 +70,7 @@ class DistributedSystem:
     def process_input(cls, input, processes: List[BaseProcess]):
         BaseProcess.set_input(input)
         with cls._processes_lock:
-            threads : List[Thread] = []
+            threads: List[Thread] = []
             for process in processes:
                 cls._processes[process.get_id()] = process
                 threads.append(Thread(target=process.start))
@@ -92,7 +92,6 @@ class DistributedSystem:
         with cls._processes_lock:
             del cls._processes[id]
             cls._processes_cv.notify()
-
 
     @classmethod
     def wait_for_completion(cls):
