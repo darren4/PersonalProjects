@@ -1,6 +1,7 @@
-from distributed_systems.base import BaseProcess, DistributedSystem, SRC, MSG
+from distributed_systems.lib import BaseProcess, DistributedSystem, SRC, MSG
 
 import time
+
 
 DONE = "DONE"
 
@@ -9,22 +10,32 @@ GUARD_ID = 1
 WORKER_0_ID = 2
 WORKER_1_ID = 3
 
+WORKER_COUNT = 2
 
-class Manager(BaseProcess):
+
+class Process(BaseProcess):
+    def get_one_message(self, wait_time=0.1):
+        while True:
+            msg = self.read_msg()
+            if msg:
+                return msg
+            else:
+                time.sleep(wait_time)
+
+
+class Manager(Process):
+
     def start(self):
         BaseProcess.output = 0
-
+        bite_size = 5
         input_len = len(BaseProcess.input)
-        middle = int(input_len / 2)
-        self.send_msg(WORKER_0_ID, (0, middle))
-        self.send_msg(WORKER_1_ID, (middle, -1))
-
-        done = 0
-        while done < 2:
-            if self.read_msg():
-                done += 1
-            else:
-                time.sleep(0.1)
+        for window_start in range(0, input_len, bite_size):
+            window_end = min(window_start + bite_size, input_len)
+            msg = self.get_one_message()
+            self.send_msg(msg[SRC], (window_start, window_end))
+        for _ in range(WORKER_COUNT):
+            msg = self.get_one_message()
+            self.send_msg(msg[SRC], DONE)
         self.send_msg(GUARD_ID, DONE)
         self.complete()
 
@@ -38,54 +49,50 @@ class Guard(BaseProcess):
         while True:
             msg = self.read_msg()
             if msg:
-                if msg[MSG] == DONE:
+                if msg[MSG] and msg[MSG] == DONE:
                     break
                 else:
                     if not self.owner:
-                        self.send_msg(int(msg[MSG]), True)
-                        self.owner = int(msg[MSG])
-                    elif self.owner == int(msg[MSG]):
+                        self.send_msg(int(msg[SRC]), True)
+                        self.owner = int(msg[SRC])
+                    elif self.owner == int(msg[SRC]):
                         self.owner = None
                     else:
-                        self.send_msg(int(msg[MSG]), False)
+                        self.send_msg(int(msg[SRC]), False)
             else:
                 time.sleep(0.1)
         self.complete()
 
 
-class Worker(BaseProcess):
-    def start(self):
-        msg = None
-        while not msg:
-            msg = self.read_msg()
-            time.sleep(0.1)
-        assert msg[SRC] == MANAGER_ID
-        if msg[MSG][1] == -1:
-            input_portion = BaseProcess.input[msg[MSG][0] :]
-        else:
-            input_portion = BaseProcess.input[msg[MSG][0] : msg[MSG][1]]
+class Worker(Process):
+
+    def _process_window(self, bounds):
+        input_window = BaseProcess.input[bounds[0]: bounds[1]]
         one_count = 0
-        for char in input_portion:
-            if int(char) == 1:
+        for char in input_window:
+            if char == "1":
                 one_count += 1
-
-        gained_access = False
-        while not gained_access:
-            self.send_msg(GUARD_ID, self.get_id())
-            msg = None
-            while not msg:
-                msg = self.read_msg()
-                time.sleep(0.1)
+        
+        holding_lock = False
+        while not holding_lock:
+            self.send_msg(GUARD_ID)
+            msg = self.get_one_message()
             assert msg[SRC] == GUARD_ID
-            if msg[MSG]:
-                gained_access = True
-            else:
-                time.sleep(0.1)
-
+            holding_lock = msg[MSG]
         BaseProcess.output += one_count
-        self.send_msg(GUARD_ID, self.get_id())
-        self.send_msg(MANAGER_ID, DONE)
-        self.complete()
+        self.send_msg(GUARD_ID)
+
+    def start(self):
+        while True:
+            self.send_msg(MANAGER_ID)
+            msg = self.get_one_message()
+            if msg[MSG] == DONE:
+                self.complete()
+                return
+            elif type(msg[MSG]) == tuple:
+                self._process_window(msg[MSG])
+            else:
+                print(f"[DEBUG] Unrecognized message: {msg[MSG]}")
 
 
 if __name__ == "__main__":
@@ -97,5 +104,10 @@ if __name__ == "__main__":
         Worker(WORKER_1_ID),
     ]
     DistributedSystem.process_input(system_input, processes)
-    time.sleep(2)
-    assert BaseProcess.output == 14
+    DistributedSystem.wait_for_completion()
+
+    correct_count = 0
+    for char in system_input:
+        if char == "1":
+            correct_count += 1
+    assert BaseProcess.output == correct_count
