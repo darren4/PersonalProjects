@@ -22,7 +22,7 @@ class BaseProcess(ABC):
     """
     Rules:
         1. Do not apply thread controls (like threading.Lock) to static variables
-        2. Inter-process communication must go through helper functions
+        2. Inter-process communication must go through helper functions read_msg and send_msg
     """
 
     input = None

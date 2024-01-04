@@ -1,8 +1,10 @@
-from distributed_systems.lib import BaseProcess, DistributedSystem, SRC, MSG
+from distributed_systems.framework import BaseProcess, DistributedSystem, SRC, MSG
 
 import time
 from threading import Event, Lock, Condition
 from queue import Queue
+from enum import Enum
+from typing import List
 
 
 DONE = "DONE"
@@ -14,17 +16,69 @@ WORKER_1_ID = 3
 
 WORKER_COUNT = 2
 
+class MsgType(Enum):
+    ACK = 1
+    REG = 2
+
+class Msg:
+    def __init__(self, msg_type: MsgType=MsgType.REG, msg_content=None):
+        self.type: MsgType = msg_type
+        self.content = msg_content
 
 class Process(BaseProcess):
     def initialize(self):
         self.inbox: Queue = Queue()
 
+        self._waiting_acks: List[bool] = []
+        self._waiting_acks_lock: Lock = Lock()
+        self._waiting_acks_cv: Condition = Condition(self._waiting_acks_lock)
+
+        self._free_ack_ids: set = set()
+        self._free_ack_ids_lock: Lock = Lock()
+
+        self._done_processing: bool = False
+        self._done_processing_lock: Lock = Lock()
+
     def read_msg(self, source_id, msg):
         self.inbox.put({SRC: source_id, MSG: msg})
 
-    def get_one_msg(self):
-        return self.inbox.get()
+    def _set_done_processing(self):
+        with self._done_processing_lock:
+            self._done_processing = True
 
+    def _check_done_processing(self):
+        with self._done_processing_lock:
+            return self._done_processing
+
+    def _keep_checking_msgs(self):
+        while True:
+            if self._check_done_processing():
+                return
+            src_and_msg = self.inbox.get()
+            source = src_and_msg[SRC]
+            msg: Msg = src_and_msg[MSG]
+            if msg.type == MsgType.ACK:
+                with self._waiting_acks_lock:
+                    self._
+
+    def _wait_on_msg_id(self):
+        with self._free_ack_ids_lock:
+            if self._free_ack_ids:
+                return self._free_ack_ids.pop()
+        with self._waiting_acks_lock:
+            msg_id = len(self._waiting_acks)
+            self._waiting_acks.append(True)
+            return msg_id
+
+    def send_msg_verify(self, target, msg, retry_time=0.1):
+        msg_id = self._wait_on_msg_id()
+        self.send_msg(target, msg)
+
+        with self._waiting_acks_lock:
+            while self._waiting_acks[msg_id]:
+                success = self._waiting_acks_cv.wait(timeout=retry_time)
+                if not success:
+                    self.send_msg(target, msg)
 
 class Manager(Process):
     def start(self):
