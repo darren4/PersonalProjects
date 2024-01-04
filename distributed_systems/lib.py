@@ -31,7 +31,10 @@ class BaseProcess(ABC):
 
     def __init__(self, id):
         self._id = id
-        self._inbox = queue.Queue()
+        self.initialize()
+
+    def initialize(self):
+        pass
 
     @classmethod
     def set_input(cls, input):
@@ -40,14 +43,12 @@ class BaseProcess(ABC):
     def get_id(self):
         return self._id
 
+    @abstractmethod
+    def read_msg(self, source_id, msg):
+        raise NotImplementedError()
+    
     def receive_msg(self, source_id, msg):
-        self._inbox.put({SRC: source_id, MSG: msg})
-
-    def read_msg(self):
-        try:
-            return self._inbox.get()
-        except queue.Empty:
-            return None
+        Thread(target=self.read_msg, args=[source_id, msg]).start()
 
     def send_msg(self, target_id, msg=None):
         DistributedSystem.msg_to_process(self.get_id(), target_id, msg)

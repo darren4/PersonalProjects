@@ -1,6 +1,8 @@
 from distributed_systems.lib import BaseProcess, DistributedSystem, SRC, MSG
 
 import time
+from threading import Event, Lock, Condition
+from queue import Queue
 
 
 DONE = "DONE"
@@ -14,13 +16,14 @@ WORKER_COUNT = 2
 
 
 class Process(BaseProcess):
-    def get_one_message(self, wait_time=0.1):
-        while True:
-            msg = self.read_msg()
-            if msg:
-                return msg
-            else:
-                time.sleep(wait_time)
+    def initialize(self):
+        self.inbox: Queue = Queue()
+
+    def read_msg(self, source_id, msg):
+        self.inbox.put({SRC: source_id, MSG: msg})
+
+    def get_one_msg(self):
+        return self.inbox.get()
 
 
 class Manager(Process):
@@ -30,23 +33,23 @@ class Manager(Process):
         input_len = len(BaseProcess.input)
         for window_start in range(0, input_len, bite_size):
             window_end = min(window_start + bite_size, input_len)
-            msg = self.get_one_message()
+            msg = self.get_one_msg()
             self.send_msg(msg[SRC], (window_start, window_end))
         for _ in range(WORKER_COUNT):
-            msg = self.get_one_message()
+            msg = self.get_one_msg()
             self.send_msg(msg[SRC], DONE)
         self.send_msg(GUARD_ID, DONE)
         self.complete()
 
 
-class Guard(BaseProcess):
+class Guard(Process):
     def __init__(self, id):
         super().__init__(id)
         self.owner = None
 
     def start(self):
         while True:
-            msg = self.read_msg()
+            msg = self.get_one_msg()
             if msg:
                 if msg[MSG] and msg[MSG] == DONE:
                     break
@@ -74,7 +77,7 @@ class Worker(Process):
         holding_lock = False
         while not holding_lock:
             self.send_msg(GUARD_ID)
-            msg = self.get_one_message()
+            msg = self.get_one_msg()
             assert msg[SRC] == GUARD_ID
             holding_lock = msg[MSG]
         BaseProcess.output += one_count
@@ -83,7 +86,7 @@ class Worker(Process):
     def start(self):
         while True:
             self.send_msg(MANAGER_ID)
-            msg = self.get_one_message()
+            msg = self.get_one_msg()
             if msg[MSG] == DONE:
                 self.complete()
                 return
