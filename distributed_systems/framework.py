@@ -18,7 +18,7 @@ SRC = "SOURCE"
 MSG = "MESSAGE"
 
 
-class BaseProcess(ABC):
+class ProcessFramework(ABC):
     """
     Rules:
         1. Do not apply thread controls (like threading.Lock) to static variables
@@ -63,18 +63,18 @@ class BaseProcess(ABC):
 
 
 class DistributedSystem:
+    _processes: Dict[int, ProcessFramework] = {}
+    _processes_lock = Lock()
+    _processes_cv = Condition(_processes_lock)
+
     class NonExistentProcess(ValueError):
         def __init__(self, process):
             self.process = process
             super().__init__(f"Process {self.process} does not exist")
 
-    _processes: Dict[int, BaseProcess] = {}
-    _processes_lock = Lock()
-    _processes_cv = Condition(_processes_lock)
-
     @classmethod
-    def process_input(cls, input, processes: List[BaseProcess]):
-        BaseProcess.set_input(input)
+    def process_input(cls, input, processes: List[ProcessFramework]):
+        ProcessFramework.set_input(input)
         with cls._processes_lock:
             threads: List[Thread] = []
             for process in processes:
@@ -105,3 +105,4 @@ class DistributedSystem:
             while cls._processes:
                 cls._processes_cv.wait()
         print("Distributed system completed successfully")
+        return ProcessFramework.output
