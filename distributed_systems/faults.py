@@ -1,8 +1,8 @@
 import random
 
 
-FAULTS_ENABLED = False
-DEBUG = False
+FAULTS_ENABLED = True
+DEBUG = True
 
 
 def message_not_sent():

@@ -46,7 +46,7 @@ class BaseProcess(ABC):
     @abstractmethod
     def read_msg(self, source_id, msg):
         raise NotImplementedError()
-    
+
     def receive_msg(self, source_id, msg):
         Thread(target=self.read_msg, args=[source_id, msg]).start()
 

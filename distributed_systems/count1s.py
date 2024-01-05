@@ -2,6 +2,7 @@ from distributed_systems.framework import BaseProcess, DistributedSystem, SRC, M
 
 from threading import Lock, Condition, Thread
 from queue import Queue
+import queue
 from enum import Enum
 from typing import Dict, Set
 
@@ -15,15 +16,20 @@ WORKER_1_ID = 3
 
 WORKER_COUNT = 2
 
+
 class MsgType(Enum):
     ACK = 1
     REG = 2
 
+
 class Msg:
-    def __init__(self, msg_type: MsgType=MsgType.REG, msg_content=None, ack_msg: int=-1):
+    def __init__(
+        self, msg_type: MsgType = MsgType.REG, msg_content=None, ack_msg: int = -1
+    ):
         self.type: MsgType = msg_type
         self.content = msg_content
         self.ack: int = ack_msg
+
 
 class Process(BaseProcess):
     def initialize(self):
@@ -47,10 +53,14 @@ class Process(BaseProcess):
 
     def _keep_checking_msgs(self):
         while True:
-            if self.check_done_processing():
-                self.complete()
-                return
-            src_and_msg = self.general_inbox.get()
+            try:
+                src_and_msg = self.general_inbox.get(timeout=0.1)
+            except queue.Empty:
+                if self.check_done_processing():
+                    self.complete()
+                    return
+                else:
+                    continue
             source = src_and_msg[SRC]
             msg: Msg = src_and_msg[MSG]
             if msg.type == MsgType.ACK:
@@ -81,7 +91,7 @@ class Process(BaseProcess):
             self._waiting_acks[msg_id] = True
             return msg_id
 
-    def send_msg_verify(self, target: int, msg: Msg, retry_time: float=0.1):
+    def send_msg_verify(self, target: int, msg: Msg, retry_time: float = 0.1):
         msg_id = self._wait_on_msg_id()
         msg.ack = msg_id
         self.send_msg(target, msg)
@@ -99,6 +109,7 @@ class Process(BaseProcess):
     def check_done_processing(self) -> bool:
         with self._done_processing_lock:
             return self._done_processing
+
 
 class Manager(Process):
     def start(self):
@@ -164,7 +175,7 @@ class Worker(Process):
             msg = self.get_one_msg()
             if msg[MSG].content == DONE:
                 self.set_done_processing()
-                return
+                break
             elif type(msg[MSG].content) == tuple:
                 self._process_window(msg[MSG].content)
             else:
@@ -173,6 +184,7 @@ class Worker(Process):
 
 if __name__ == "__main__":
     system_input = "000101111000010010000101111000010010"
+    print(f"Input length: {len(system_input)}")
     processes = [
         Manager(MANAGER_ID),
         Guard(GUARD_ID),
