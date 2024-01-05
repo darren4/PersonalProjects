@@ -1,11 +1,9 @@
 from distributed_systems.framework import BaseProcess, DistributedSystem, SRC, MSG
 
-import time
 from threading import Lock, Condition, Thread
 from queue import Queue
 from enum import Enum
 from typing import Dict, Set
-from abc import abstractmethod
 
 
 DONE = "DONE"
@@ -158,7 +156,7 @@ class Worker(Process):
             assert src == GUARD_ID
             holding_lock = msg.content
         BaseProcess.output += one_count
-        self.send_msg(GUARD_ID, Msg())
+        self.send_msg_verify(GUARD_ID, Msg())
 
     def start(self):
         while True:
