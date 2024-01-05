@@ -5,6 +5,7 @@ from queue import Queue
 import queue
 from enum import Enum
 from typing import Dict, Set
+import time
 
 
 DONE = "DONE"
@@ -100,7 +101,11 @@ class Process(BaseProcess):
             while self._waiting_acks[msg_id]:
                 success = self._waiting_acks_cv.wait(timeout=retry_time)
                 if not success:
-                    self.send_msg(target, msg)
+                    try:
+                        self.send_msg(target, msg)
+                    except DistributedSystem.NonExistentProcess as e:
+                        assert e.process == target
+                        return
 
     def set_done_processing(self):
         with self._done_processing_lock:
@@ -191,8 +196,10 @@ if __name__ == "__main__":
         Worker(WORKER_0_ID),
         Worker(WORKER_1_ID),
     ]
+    start_time = time.time()
     DistributedSystem.process_input(system_input, processes)
     DistributedSystem.wait_for_completion()
+    print(f"Runtime: {time.time() - start_time}")
 
     correct_count = 0
     for char in system_input:

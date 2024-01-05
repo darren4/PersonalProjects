@@ -63,6 +63,11 @@ class BaseProcess(ABC):
 
 
 class DistributedSystem:
+    class NonExistentProcess(ValueError):
+        def __init__(self, process):
+            self.process = process
+            super().__init__(f"Process {self.process} does not exist")
+
     _processes: Dict[int, BaseProcess] = {}
     _processes_lock = Lock()
     _processes_cv = Condition(_processes_lock)
@@ -86,7 +91,7 @@ class DistributedSystem:
             with cls._processes_lock:
                 cls._processes[target_id].receive_msg(source_id, msg)
         except KeyError:
-            raise ValueError(f"process {target_id} does not exist")
+            raise DistributedSystem.NonExistentProcess(target_id)
 
     @classmethod
     def end_process(cls, id):

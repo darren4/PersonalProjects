@@ -2,7 +2,7 @@ import random
 
 
 FAULTS_ENABLED = True
-DEBUG = True
+DEBUG = False
 
 
 def message_not_sent():
