@@ -1,5 +1,6 @@
+from trading.simple_backtrader.constants import *
+
 import random
-from simple_backtrader.constants import *
 
 random.seed(1)
 

@@ -1,6 +1,7 @@
+from trading.simple_backtrader.constants import *
+
 import pandas as pd
 import numpy as np
-from simple_backtrader.constants import *
 
 
 def simple_ma(historical_data: list, position: dict):

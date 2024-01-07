@@ -1,12 +1,16 @@
-from simple_backtrader import SimpleBacktrader
+from trading.simple_backtrader import SimpleBacktrader
+from trading.simple_backtrader.strategy_random import random_short, random_long
+from trading.simple_backtrader.strategy_ma import simple_ma
+from trading.simple_backtrader.strategy_trend_follow import linear_trend_follow
+
 import time
 import pandas as pd
-from simple_backtrader.strategy_random import random_short, random_long
-from simple_backtrader.strategy_ma import simple_ma
-from simple_backtrader.strategy_trend_follow import linear_trend_follow
+import os
 
 
-historical_data = pd.read_csv("Yahoo-Data/daily/AAPL.csv").to_dict("records")
+historical_data = pd.read_csv(
+    f"{os.environ['PYTHONPATH']}/trading/historical_data/Yahoo-Data/AAPL.csv"
+).to_dict("records")
 STARING_CASH = 10000
 
 simple_backtrader = SimpleBacktrader(historical_data, STARING_CASH)

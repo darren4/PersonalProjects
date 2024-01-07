@@ -1,5 +1,6 @@
+from trading.simple_backtrader.constants import *
+
 from collections import deque
-from simple_backtrader.constants import *
 from typing import Callable
 
 

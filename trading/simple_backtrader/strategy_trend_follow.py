@@ -1,10 +1,11 @@
+from trading.simple_backtrader.constants import *
+from trading.utils.trends import LinearTrendDirection
+
 import pandas as pd
-import numpy as np
-from simple_backtrader.constants import *
-from utils.trends import LinearTrendDirection
 
 
 trender = LinearTrendDirection()
+
 
 def linear_trend_follow(historical_data: list, position: dict):
     historical_data = pd.DataFrame(historical_data)
@@ -22,6 +23,3 @@ def linear_trend_follow(historical_data: list, position: dict):
             if position[SHORT] == 0:
                 trades.append((SELL, 1))
     return trades
-
-
-
