@@ -15,7 +15,7 @@ CASH = "CASH"
 SECURITY = "SECURITY"
 
 
-class Exchange:
+class SingleSecurityExchange:
     def __init__(self, participants):
         """
         participants: dictionary of participant_id (key) to dictionary of cash/security amount (value)
@@ -70,5 +70,5 @@ class Exchange:
         return True
 
 
-class Participant:
+class BaseParticipant:
     
