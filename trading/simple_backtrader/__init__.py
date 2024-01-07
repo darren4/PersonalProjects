@@ -10,10 +10,10 @@ class SimpleBacktrader:
     ):
         self.historical_data = _historical_data
         self.data_col = _data_col
-        self.reset_position = {CASH: _starting_cash, LONG: 0, SHORT: 0}
         self.position = None
         self.short_queue = None
         self.user_historical_data = None
+        self.starting_cash = _starting_cash
 
         self.processing = {
             BUY: self._process_buy,
@@ -86,7 +86,7 @@ class SimpleBacktrader:
 
     def backtrade(self, strategy: Callable[[list, dict], list]) -> float:
         self.user_historical_data = list()
-        self.position = self.reset_position
+        self.position = {CASH: self.starting_cash, LONG: 0, SHORT: 0}
         self.short_queue = deque()
         for point in self.historical_data:
             self.user_historical_data.append(point)
