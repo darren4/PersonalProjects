@@ -1,5 +1,5 @@
-from components import Planet, Ecosystem, Prey, Predator
-from constants import *
+from ecosystem.python.components import Planet, Ecosystem, Prey, Predator
+from ecosystem.python.constants import *
 
 import random
 from threading import Lock, Thread

@@ -1,9 +1,10 @@
-from constants import *
+from ecosystem.python.constants import *
 
 import random
 from threading import Lock, Condition
 from abc import ABC, abstractmethod
 import pandas as pd
+import os
 
 
 class Logger:
@@ -25,7 +26,7 @@ class Logger:
         for i in range(1, len(lens)):
             assert lens[i] == lens[i - 1]
         df = pd.DataFrame.from_dict(self.data, orient="index").transpose()
-        df.to_csv(f"ecosystem/status/{filename}")
+        df.to_csv(f"{os.environ['PYTHONPATH']}/ecosystem/status/{filename}")
 
 
 class Planet:
