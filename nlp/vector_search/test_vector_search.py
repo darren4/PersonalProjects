@@ -1,15 +1,15 @@
-from nlp.vector_search.coverage_search import CoverageSearch
+from nlp.vector_search.perpendicular_search import PerpendicularSearch
 
 import numpy as np
 
 
-def test_coverage_search():
+def test_perpendicular_search():
     embeddings = [np.array([-0.18, 0.249]), np.array([0.9999, 1.0])]
     corpus = [
         "cat",
         "dog",
     ]
-    search = CoverageSearch(corpus, embeddings)
+    search = PerpendicularSearch(corpus, embeddings)
 
     assert search.search(np.array([-0.18, 0.249])) == ["cat"]
     assert search.search(np.array([-0.10, 0.30])) == ["cat"]
@@ -20,4 +20,4 @@ def test_coverage_search():
 
 
 if __name__ == "__main__":
-    test_coverage_search()
+    PerpendicularSearch()
