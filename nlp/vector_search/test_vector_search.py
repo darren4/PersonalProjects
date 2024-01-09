@@ -11,13 +11,23 @@ def test_perpendicular_search():
     ]
     search = PerpendicularSearch(corpus, embeddings)
 
-    assert search.search(np.array([-0.18, 0.249])) == ["cat"]
-    assert search.search(np.array([-0.10, 0.30])) == ["cat"]
-    assert search.search(np.array([-0.10, 0.2])) == ["cat"]
+    result = search.search(np.array([-0.18, 0.249]))
+    assert len(result) == 1
+    assert result[0][0] == "cat"
+    result = search.search(np.array([-0.10, 0.30]))
+    assert len(result) == 1
+    assert result[0][0] == "cat"
+    result = search.search(np.array([-0.10, 0.2]))
+    assert (len(result)) == 1
+    assert result[0][0] == "cat"
 
-    assert search.search(np.array([0.9999, 1.0])) == ["dog"]
-    assert search.search(np.array([0.95, 0.92])) == ["dog"]
+    result = search.search(np.array([0.9999, 1.0]))
+    assert len(result) == 1
+    assert result[0][0] == "dog"
+    result = search.search(np.array([0.95, 0.92]))
+    assert len(result) == 1
+    assert result[0][0] == "dog"
 
 
 if __name__ == "__main__":
-    PerpendicularSearch()
+    test_perpendicular_search()

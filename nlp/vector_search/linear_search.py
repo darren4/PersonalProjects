@@ -4,7 +4,7 @@ import numpy as np
 from typing import Tuple, List
 
 
-class SimpleVectorSearch(BaseVectorSearch):
+class LinearVectorSearch(BaseVectorSearch):
     def __init__(
         self,
         corpus: List[str],
