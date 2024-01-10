@@ -1,4 +1,4 @@
-from strat_base import Strategy
+from nlp.binary_strategies.strat_base import Strategy
 import numpy as np
 from sklearn.neural_network import MLPClassifier
 import sys

@@ -1,4 +1,4 @@
-from strat_base import Strategy
+from nlp.binary_strategies.strat_base import Strategy
 import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
 import numpy as np
