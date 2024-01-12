@@ -1,4 +1,4 @@
-from nlp.vector_search import BaseVectorSearch, SearchResult
+from nlp.vector_search import BaseVectorSearch
 
 import numpy as np
 from typing import Tuple, List
@@ -25,7 +25,7 @@ class LinearVectorSearch(BaseVectorSearch):
                 if dist < results[-1][0]:
                     results[-1] = (dist, word_embedding)
             else:
-                results.append((dist, SearchResult(corpus_idx, self.corpus[corpus_idx], word_embedding)))
+                results.append((dist, corpus_idx))
             results.sort()
         final_results = []
         for result in results:
