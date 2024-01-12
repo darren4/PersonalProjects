@@ -1,4 +1,4 @@
-from nlp.vector_search import BaseVectorSearch
+from nlp.vector_search import BaseVectorSearch, SearchResult
 
 from typing import Final, Tuple, List
 import numpy as np
@@ -96,7 +96,7 @@ class PerpendicularSearch(BaseVectorSearch):
                                 found_embedding_cutoff
                             )
                         if search[doc_idx].add(embed_idx):
-                            results.append((self._corpus[doc_idx], self._embeddings[doc_idx]))
+                            results.append(SearchResult(doc_idx, self._corpus[doc_idx], self._embeddings[doc_idx]))
                     if len(results) >= approx_max_result_count:
                         return results
         return results
