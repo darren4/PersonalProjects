@@ -19,7 +19,7 @@ class LinearVectorSearch(BaseVectorSearch):
 
             if len(results) == approx_max_result_count:
                 if dist < results[-1][0]:
-                    results[-1] = (dist, corpus_vector)
+                    results[-1] = (dist, corpus_idx)
             else:
                 results.append((dist, corpus_idx))
             results.sort()
