@@ -7,13 +7,12 @@ class BaseVectorSearch(ABC):
     @abstractmethod
     def __init__(
         self,
-        corpus: List[str],
-        embeddings: List[np.array],
+        corpus_vectors: List[np.array],
     ):
         raise NotImplementedError()
 
     @abstractmethod
     def search(
-        self, embed_vector: np.array, approx_max_result_count
+        self, vector: np.array, approx_max_result_count
     ) -> List[int]:
         raise NotImplementedError()

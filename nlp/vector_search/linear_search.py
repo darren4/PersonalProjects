@@ -7,23 +7,19 @@ from typing import Tuple, List
 class LinearVectorSearch(BaseVectorSearch):
     def __init__(
         self,
-        corpus: List[str],
-        embeddings: List[np.array],
+        corpus_vectors: List[np.array],
     ):
-        self.corpus = corpus
-        self._corpus_embeddings: List[Tuple(str, np.array)] = []
-        for i in range(len(corpus)):
-            self._corpus_embeddings.append((corpus[i], embeddings[i]))
+        self._corpus_vectors = corpus_vectors
 
     def search(self, vector: np.array, approx_max_result_count=5):
         results = []
-        for corpus_idx in range(len(self._corpus_embeddings)):
-            word_embedding = self._corpus_embeddings[corpus_idx]
-            dist = np.linalg.norm(abs(vector - word_embedding[1]))
+        for corpus_idx in range(len(self._corpus_vectors)):
+            corpus_vector = self._corpus_vectors[corpus_idx]
+            dist = np.linalg.norm(abs(vector - corpus_vector))
 
             if len(results) == approx_max_result_count:
                 if dist < results[-1][0]:
-                    results[-1] = (dist, word_embedding)
+                    results[-1] = (dist, corpus_vector)
             else:
                 results.append((dist, corpus_idx))
             results.sort()

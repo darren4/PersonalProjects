@@ -5,11 +5,7 @@ import numpy as np
 
 def test_perpendicular_search():
     embeddings = [np.array([-0.18, 0.249]), np.array([0.9999, 1.0])]
-    corpus = [
-        "cat",
-        "dog",
-    ]
-    search = PerpendicularSearch(corpus, embeddings)
+    search = PerpendicularSearch(embeddings)
 
     result = search.search(np.array([-0.18, 0.249]))
     assert len(result) == 1
