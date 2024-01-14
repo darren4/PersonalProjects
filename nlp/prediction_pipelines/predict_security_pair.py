@@ -2,18 +2,19 @@
 
 import pandas as pd
 import numpy as np
-from glove.read_vectors import get_vector_dict
-from utils.process_corpus import StringsToVectors, NormalizeVectorLens
+from nlp.glove.read_vectors import get_vector_dict
+from nlp.utils.process_corpus import StringsToVectors, NormalizeVectorLens
 import time
+import os
 
 # %%
 start_time = time.time()
-word_vector_dict, EMBED_LEN = get_vector_dict("glove/data/glove.6B.50d.txt")
+word_vector_dict, EMBED_LEN = get_vector_dict(f"{os.getenv('PYTHONPATH')}/nlp/glove/embeddings/glove.6B.50d.txt")
 current_time = time.time()
 print(f"Finished reading vectors in {current_time - start_time} seconds")
 start_time = current_time
 # %%
-securities_data = pd.read_csv("data/security_descriptions.csv")
+securities_data = pd.read_csv(f"{os.getenv('PYTHONPATH')}/nlp/data/security_descriptions.csv")
 
 clean_descriptions = StringsToVectors(word_vector_dict, EMBED_LEN)
 process_columns = {"description_x": "matrix_x", "description_y": "matrix_y"}

@@ -1,14 +1,15 @@
 # %%
 import pandas as pd
-from glove.read_vectors import get_vector_dict
-from utils.process_corpus import StringsToVectors, NormalizeVectorLens
+from nlp.glove.read_vectors import get_vector_dict
+from nlp.utils.process_corpus import StringsToVectors, NormalizeVectorLens
 from sklearn.model_selection import train_test_split
+import os
 
 # %%
-word_vector_dict, EMBED_LEN = get_vector_dict("glove/data/instagram_vectors.txt")
+word_vector_dict, EMBED_LEN = get_vector_dict(f"{os.getenv('PYTHONPATH')}/nlp/glove/embeddings/instagram_vectors.txt")
 
 # %%
-ig_data = pd.read_csv("data/instagram.csv")
+ig_data = pd.read_csv(f"{os.getenv('PYTHONPATH')}/nlp/data/instagram.csv")
 
 clean_descriptions = StringsToVectors(word_vector_dict, EMBED_LEN)
 process_columns = {"review_description": "matrix"}
