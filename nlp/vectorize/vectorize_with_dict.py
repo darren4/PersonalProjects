@@ -48,10 +48,6 @@ class VectorizeWithDict(BaseVectorize):
         return np.array(vectors)
 
     def vectorize(self, strings: List[str]):
-        """
-        strings: 1D numpy array of strings
-        returns: 2D numpy array of dimensions (len(strings), EMBEDDING LENGTH)
-        """
         vectorized = [self._string_to_vector(string) for string in strings]
         return [normalize_adjust_lens(matrix, self._max_len, self._embed_len) for matrix in vectorized]
 
