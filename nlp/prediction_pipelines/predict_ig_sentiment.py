@@ -1,7 +1,7 @@
 # %%
 import pandas as pd
 from nlp.glove.read_vectors import get_vector_dict
-from nlp.utils.process_corpus import StringsToVectors, NormalizeVectorLens
+from nlp.vectorize.vectorize_with_dict import VectorizeWithDict
 from sklearn.model_selection import train_test_split
 import os
 
@@ -9,18 +9,14 @@ import os
 word_vector_dict, EMBED_LEN = get_vector_dict(f"{os.getenv('PYTHONPATH')}/nlp/glove/embeddings/instagram_vectors.txt")
 
 # %%
-ig_data = pd.read_csv(f"{os.getenv('PYTHONPATH')}/nlp/data/instagram.csv")
+ig_data = pd.read_csv(f"{os.getenv('PYTHONPATH')}/nlp/data/instagram_sample.csv")
 
-clean_descriptions = StringsToVectors(word_vector_dict, EMBED_LEN)
-process_columns = {"review_description": "matrix"}
-ig_data, target_len = clean_descriptions.to_vectors(ig_data, process_columns)
+vectorizer = VectorizeWithDict(word_vector_dict, EMBED_LEN)
+ig_data["matrix"] = pd.Series(vectorizer.vectorize(list(ig_data["review_description"])))
 
 # %%
-vector_len_normalizer = NormalizeVectorLens(target_len, EMBED_LEN, "ADJUST_LEN")
-
-
 def _normalize_matrix(row):
-    row["matrix"] = vector_len_normalizer.noramlize(row["matrix"]).flatten()
+    row["matrix"] = row["matrix"].flatten()
     return row
 
 
@@ -55,3 +51,5 @@ for model_name, model in models.items():
     model.fit(X_train, y_train)
     predictions = model.predict(X_test)
     print(f"Loss: {calculate_error(y_test, predictions)}")
+
+# %%

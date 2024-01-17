@@ -1,6 +1,6 @@
 # %%
 from nlp.glove.read_vectors import get_vector_dict
-from nlp.utils.process_corpus import StringsToVectors, NormalizeVectorLens
+from nlp.vectorize.vectorize_with_dict import VectorizeWithDict
 from nlp.vector_search.linear_search import LinearVectorSearch
 
 import pandas as pd
@@ -17,45 +17,24 @@ securities_embeddings_dict, embed_len = get_vector_dict(
 )
 
 # %%
-strings_to_vectors = StringsToVectors(securities_embeddings_dict, embed_len)
-process_columns = {DESCRIPTION: DESCRIPTION_VECTOR}
-jobs_df, max_len = strings_to_vectors.to_vectors(jobs_df, process_columns)
-print(f"max_len: {max_len}")
-print(f"Unknown word len: {strings_to_vectors.unknown_token_count}")
+vectorizer = VectorizeWithDict(securities_embeddings_dict, embed_len)
+jobs_df[DESCRIPTION_VECTOR] = pd.Series(vectorizer.vectorize(list(jobs_df[DESCRIPTION])))
+print(f"Unknown word prop: {vectorizer.last_unknown_prop()}")
 
 # %%
-vector_normalizer = NormalizeVectorLens(max_len, embed_len, "ADJUST_LEN")
-
-
-def normalize(matrix):
-    return vector_normalizer.noramlize(matrix).flatten()
-
-
 def _normalize_row(row):
-    row[DESCRIPTION_VECTOR] = normalize(row[DESCRIPTION_VECTOR])
+    row[DESCRIPTION_VECTOR] = row[DESCRIPTION_VECTOR].flatten()
     return row
 
 
 jobs_df = jobs_df.apply(_normalize_row, axis=1)
 
 # %%
-vector_search = LinearVectorSearch(list(jobs_df[DESCRIPTION]), jobs_df[DESCRIPTION_VECTOR])
+vector_search = LinearVectorSearch(list(jobs_df[DESCRIPTION_VECTOR]))
 
 
 # %%
 query = "writer"
-vector = strings_to_vectors.to_vector(query)
-vector = normalize(vector)
+vector = vectorizer.vectorize([query])[0].flatten()
 result = vector_search.search(vector)
-print(result[0][0])
-
-# %%
-query = "tesla motors inc"
-vector = strings_to_vectors.to_vector(query)
-vector1 = normalize(vector)
-
-query = "tesla inc"
-vector = strings_to_vectors.to_vector(query)
-vector2 = normalize(vector)
-
-print(np.linalg.norm(abs(vector1 - vector2)))
+print(jobs_df[DESCRIPTION][result])

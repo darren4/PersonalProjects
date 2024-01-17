@@ -1,54 +1,36 @@
 # %%
-
 import pandas as pd
 import numpy as np
 from nlp.glove.read_vectors import get_vector_dict
-from nlp.utils.process_corpus import StringsToVectors, NormalizeVectorLens
+from nlp.vectorize.vectorize_with_dict import VectorizeWithDict
 import time
 import os
 
 # %%
 start_time = time.time()
 word_vector_dict, EMBED_LEN = get_vector_dict(f"{os.getenv('PYTHONPATH')}/nlp/glove/embeddings/glove.6B.50d.txt")
-current_time = time.time()
-print(f"Finished reading vectors in {current_time - start_time} seconds")
-start_time = current_time
+print(f"Finished reading vectors in {time.time() - start_time} seconds")
+
 # %%
+start_time = time.time()
 securities_data = pd.read_csv(f"{os.getenv('PYTHONPATH')}/nlp/data/security_descriptions.csv")
-
-clean_descriptions = StringsToVectors(word_vector_dict, EMBED_LEN)
-process_columns = {"description_x": "matrix_x", "description_y": "matrix_y"}
-securities_data, max_len = clean_descriptions.to_vectors(
-    securities_data, process_columns
-)
-current_time = time.time()
-print(f"Finished preprocessing in {current_time - start_time} seconds")
-start_time = current_time
+vectorizer = VectorizeWithDict(word_vector_dict, EMBED_LEN)
+securities_data["matrix_x"] = pd.Series(vectorizer.vectorize(list(securities_data["description_x"])))
+securities_data["matrix_y"] = pd.Series(vectorizer.vectorize(list(securities_data["description_y"])))
+print(f"Finished vectorizing in {time.time() - start_time} seconds")
 
 # %%
-vector_len_normalizer = NormalizeVectorLens(max_len, EMBED_LEN, "ADJUST_LEN")
-
-
-def _normalize_matrix(row):
-    row["matrix_x"] = vector_len_normalizer.noramlize(row["matrix_x"])
-    row["matrix_y"] = vector_len_normalizer.noramlize(row["matrix_y"])
+start_time = time.time()
+def _matrix_diff(row):
     row["matrix_x-y"] = (np.absolute(row["matrix_x"] - row["matrix_y"])).flatten()
     row["matrix_x-y_norm"] = np.linalg.norm(row["matrix_x-y"], axis=0)
     return row
-
-
-securities_data = securities_data.apply(_normalize_matrix, axis=1)
-print(f"Finished conversion to vectors in {time.time() - start_time} seconds")
+securities_data = securities_data.apply(_matrix_diff, axis=1)
+print(f"Finished calculating differences in {time.time() - start_time} seconds")
 
 # %%
 securities_true = securities_data[securities_data["same_security"]]
 securities_false = securities_data[~securities_data["same_security"]]
-# import matplotlib.pyplot as plt
-
-# plt.hist(securities_true["matrix_x-y_norm"])
-# plt.show()
-# plt.hist(securities_false["matrix_x-y_norm"])
-# plt.show()
 
 # %%
 from sklearn.model_selection import train_test_split
