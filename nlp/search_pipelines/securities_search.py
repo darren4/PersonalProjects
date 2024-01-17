@@ -2,7 +2,9 @@
 
 from nlp.glove.read_vectors import get_vector_dict
 from nlp.vectorize.vectorize_with_dict import VectorizeWithDict
+from nlp.vectorize.vectorize_with_hg import VectorizeWithHG
 from nlp.vector_search.linear_search import LinearVectorSearch
+from nlp.vector_search.perpendicular_search import PerpendicularSearch
 from utils.logger import Logger
 
 import pandas as pd
@@ -19,14 +21,15 @@ securities_df = pd.read_csv(
 )
 
 
-start_time = time.time()
-securities_embeddings_dict, embed_len = get_vector_dict(
-    f"{os.environ.get('PYTHONPATH')}/nlp/glove/embeddings/securities_vectors.txt"
-)
-logger.log(f"Embeddings load time: {time.time() - start_time}")
+# start_time = time.time()
+# securities_embeddings_dict, embed_len = get_vector_dict(
+#     f"{os.environ.get('PYTHONPATH')}/nlp/glove/embeddings/securities_vectors.txt"
+# )
+# logger.log(f"Embeddings load time: {time.time() - start_time}")
+# vectorizer = VectorizeWithDict(securities_embeddings_dict, embed_len)
 
+vectorizer = VectorizeWithHG()
 
-vectorizer = VectorizeWithDict(securities_embeddings_dict, embed_len)
 start_time = time.time()
 securities_df[X_MAT] = pd.Series(list(vectorizer.vectorize(securities_df[X_WORDS])))
 securities_df[Y_MAT] = pd.Series(list(vectorizer.vectorize(securities_df[Y_WORDS])))
@@ -45,7 +48,12 @@ securities_df = securities_df.apply(_normalize_row, axis=1)
 logger.log(f"Vector normalization time: {time.time() - start_time}")
 
 # %%
-vector_search = LinearVectorSearch(list(securities_df[X_MAT]))
+start_time = time.time()
+# vector_search = LinearVectorSearch(list(securities_df[X_MAT]))
+vector_search = PerpendicularSearch(list(securities_df[X_MAT]))
+logger.log(f"Loaded vectors into search in {time.time() - start_time} seconds")
+
+start_time = time.time()
 correct = 0
 for i in range(len(securities_df)):
     query = securities_df[Y_MAT][i]
@@ -53,5 +61,5 @@ for i in range(len(securities_df)):
     if securities_df["ticker_x"][result] == securities_df["ticker_y"][i]:
         correct += 1
 print(f"Accuracy: {correct / len((securities_df))}")
-
+print(f"Search completed in {time.time() - start_time} seconds")
 # %%

@@ -1,4 +1,4 @@
-from vectorize.base_vectorize import BaseVectorize
+from nlp.vectorize.base_vectorize import BaseVectorize
 
 from typing import List
 from sentence_transformers import SentenceTransformer

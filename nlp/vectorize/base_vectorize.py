@@ -7,3 +7,6 @@ class BaseVectorize(ABC):
     @abstractmethod
     def vectorize(self, strings: List[str]) -> List[np.array]:
         pass
+
+    def last_unknown_prop(self):
+        return 0.0
