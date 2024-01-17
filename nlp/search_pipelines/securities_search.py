@@ -28,7 +28,7 @@ securities_df = pd.read_csv(
 # logger.log(f"Embeddings load time: {time.time() - start_time}")
 # vectorizer = VectorizeWithDict(securities_embeddings_dict, embed_len)
 
-vectorizer = VectorizeWithHG()
+vectorizer = VectorizeWithHG('sentence-t5-base')
 
 start_time = time.time()
 securities_df[X_MAT] = pd.Series(list(vectorizer.vectorize(securities_df[X_WORDS])))
@@ -49,8 +49,8 @@ logger.log(f"Vector normalization time: {time.time() - start_time}")
 
 # %%
 start_time = time.time()
-# vector_search = LinearVectorSearch(list(securities_df[X_MAT]))
-vector_search = PerpendicularSearch(list(securities_df[X_MAT]))
+vector_search = LinearVectorSearch(list(securities_df[X_MAT]))
+# vector_search = PerpendicularSearch(list(securities_df[X_MAT]))
 logger.log(f"Loaded vectors into search in {time.time() - start_time} seconds")
 
 start_time = time.time()
@@ -60,6 +60,6 @@ for i in range(len(securities_df)):
     result = vector_search.search(query)[0]
     if securities_df["ticker_x"][result] == securities_df["ticker_y"][i]:
         correct += 1
-print(f"Accuracy: {correct / len((securities_df))}")
-print(f"Search completed in {time.time() - start_time} seconds")
+logger.log(f"Accuracy: {correct / len((securities_df))}")
+logger.log(f"Search completed in {time.time() - start_time} seconds")
 # %%
