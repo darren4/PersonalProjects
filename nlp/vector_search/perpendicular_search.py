@@ -14,7 +14,9 @@ class PerpendicularSearch(BaseVectorSearch):
     def __init__(
         self,
         corpus_vectors: List[np.array],
+        coverage_cutoff=COVERED_DIM_CUTOFF_PROP,
     ):
+        self._coverage_cutoff = coverage_cutoff
         self._vector_len = len(corpus_vectors[0])
 
         self._search_range = NORM_RANGE[1] - NORM_RANGE[0] + 1
@@ -61,7 +63,7 @@ class PerpendicularSearch(BaseVectorSearch):
         for dim in range(self._vector_len):
             vector_copy[dim] = self._normalize_vector_value(vector_copy[dim])
 
-        dim_coverage_cutoff = int(COVERED_DIM_CUTOFF_PROP * self._vector_len)
+        dim_coverage_cutoff = int(self._coverage_cutoff * self._vector_len)
         search = {}
         results = []
         for abs_delta in range(SEARCH_DISTANCE):
