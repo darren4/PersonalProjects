@@ -1,10 +1,11 @@
+# %%
+
 from nlp.glove.read_vectors import get_vector_dict
-from nlp.utils.process_corpus import StringsToVectors, NormalizeVectorLens
+from nlp.vectorize.vectorize_with_dict import VectorizeWithDict
 from nlp.vector_search.linear_search import LinearVectorSearch
 from utils.logger import Logger
 
 import pandas as pd
-import numpy as np
 import os
 import time
 
@@ -25,25 +26,17 @@ securities_embeddings_dict, embed_len = get_vector_dict(
 logger.log(f"Embeddings load time: {time.time() - start_time}")
 
 
-strings_to_vectors = StringsToVectors(securities_embeddings_dict, embed_len)
-process_columns = {X_WORDS: X_MAT, Y_WORDS: Y_MAT}
+vectorizer = VectorizeWithDict(securities_embeddings_dict, embed_len)
 start_time = time.time()
-securities_df, max_len = strings_to_vectors.to_vectors(securities_df, process_columns)
+securities_df[X_MAT] = pd.Series(list(vectorizer.vectorize(securities_df[X_WORDS])))
+securities_df[Y_MAT] = pd.Series(list(vectorizer.vectorize(securities_df[Y_WORDS])))
 logger.log(f"Vector conversion time: {time.time() - start_time}")
-logger.log(f"Max sentence len: {max_len}")
-logger.log(f"Proportion of unknown tokens: {strings_to_vectors.last_unknown_prop()}")
-
-
-vector_normalizer = NormalizeVectorLens(10, embed_len, "AVG_SEMANTICS")
-
-
-def normalize(matrix):
-    return vector_normalizer.noramlize(matrix).flatten()
+logger.log(f"Proportion of unknown tokens: {vectorizer.last_unknown_prop()}")
 
 
 def _normalize_row(row):
-    row[X_MAT] = normalize(row[X_MAT])
-    row[Y_MAT] = normalize(row[Y_MAT])
+    row[X_MAT] = row[X_MAT].flatten()
+    row[Y_MAT] = row[Y_MAT].flatten()
     return row
 
 
@@ -51,42 +44,14 @@ start_time = time.time()
 securities_df = securities_df.apply(_normalize_row, axis=1)
 logger.log(f"Vector normalization time: {time.time() - start_time}")
 
-vector_list = []
-sentence_list = []
-duplicate_search = set()
+# %%
+vector_search = LinearVectorSearch(list(securities_df[X_MAT]))
+correct = 0
+for i in range(len(securities_df)):
+    query = securities_df[Y_MAT][i]
+    result = vector_search.search(query)[0]
+    if securities_df["ticker_x"][result] == securities_df["ticker_y"][i]:
+        correct += 1
+print(f"Accuracy: {correct / len((securities_df))}")
 
-
-def _add_row(row):
-    if row[X_WORDS] not in duplicate_search:
-        sentence_list.append(row[X_WORDS])
-        vector_list.append(row[X_MAT])
-        duplicate_search.add(row[X_WORDS])
-    if row[Y_WORDS] not in duplicate_search:
-        sentence_list.append(row[Y_WORDS])
-        vector_list.append(row[Y_MAT])
-        duplicate_search.add(row[Y_WORDS])
-
-
-securities_df.apply(_add_row, axis=1)
-vector_search = LinearVectorSearch(sentence_list, vector_list)
-
-
-query = "tesla mtrs inc com"
-vector = strings_to_vectors.to_vector(query)
-vector = normalize(vector)
-result = vector_search.search(vector)
-logger.log(result)
-
-logger.log("---")
-
-query = "tesla motors inc com"
-vector = strings_to_vectors.to_vector(query)
-vector1 = normalize(vector)
-logger.log(query)
-
-query = "tesla mtrs inc com"
-vector = strings_to_vectors.to_vector(query)
-vector2 = normalize(vector)
-logger.log(query)
-
-logger.log(np.linalg.norm(abs(vector1 - vector2)))
+# %%
