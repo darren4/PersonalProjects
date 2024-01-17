@@ -8,23 +8,35 @@ import os
 
 # %%
 start_time = time.time()
-word_vector_dict, EMBED_LEN = get_vector_dict(f"{os.getenv('PYTHONPATH')}/nlp/glove/embeddings/glove.6B.50d.txt")
+word_vector_dict, EMBED_LEN = get_vector_dict(
+    f"{os.getenv('PYTHONPATH')}/nlp/glove/embeddings/glove.6B.50d.txt"
+)
 print(f"Finished reading vectors in {time.time() - start_time} seconds")
 
 # %%
 start_time = time.time()
-securities_data = pd.read_csv(f"{os.getenv('PYTHONPATH')}/nlp/data/security_descriptions.csv")
+securities_data = pd.read_csv(
+    f"{os.getenv('PYTHONPATH')}/nlp/data/security_descriptions.csv"
+)
 vectorizer = VectorizeWithDict(word_vector_dict, EMBED_LEN)
-securities_data["matrix_x"] = pd.Series(vectorizer.vectorize(list(securities_data["description_x"])))
-securities_data["matrix_y"] = pd.Series(vectorizer.vectorize(list(securities_data["description_y"])))
+securities_data["matrix_x"] = pd.Series(
+    vectorizer.vectorize(list(securities_data["description_x"]))
+)
+securities_data["matrix_y"] = pd.Series(
+    vectorizer.vectorize(list(securities_data["description_y"]))
+)
 print(f"Finished vectorizing in {time.time() - start_time} seconds")
 
 # %%
 start_time = time.time()
+
+
 def _matrix_diff(row):
     row["matrix_x-y"] = (np.absolute(row["matrix_x"] - row["matrix_y"])).flatten()
     row["matrix_x-y_norm"] = np.linalg.norm(row["matrix_x-y"], axis=0)
     return row
+
+
 securities_data = securities_data.apply(_matrix_diff, axis=1)
 print(f"Finished calculating differences in {time.time() - start_time} seconds")
 

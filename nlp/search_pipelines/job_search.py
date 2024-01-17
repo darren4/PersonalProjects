@@ -18,8 +18,11 @@ securities_embeddings_dict, embed_len = get_vector_dict(
 
 # %%
 vectorizer = VectorizeWithDict(securities_embeddings_dict, embed_len)
-jobs_df[DESCRIPTION_VECTOR] = pd.Series(vectorizer.vectorize(list(jobs_df[DESCRIPTION])))
+jobs_df[DESCRIPTION_VECTOR] = pd.Series(
+    vectorizer.vectorize(list(jobs_df[DESCRIPTION]))
+)
 print(f"Unknown word prop: {vectorizer.last_unknown_prop()}")
+
 
 # %%
 def _normalize_row(row):

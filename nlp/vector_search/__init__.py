@@ -12,7 +12,5 @@ class BaseVectorSearch(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def search(
-        self, vector: np.array, approx_max_result_count
-    ) -> List[int]:
+    def search(self, vector: np.array, approx_max_result_count) -> List[int]:
         raise NotImplementedError()

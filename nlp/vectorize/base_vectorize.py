@@ -7,5 +7,3 @@ class BaseVectorize(ABC):
     @abstractmethod
     def vectorize(self, strings: List[str]) -> List[np.array]:
         pass
-
-    

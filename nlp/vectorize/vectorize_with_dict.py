@@ -6,13 +6,16 @@ import numpy as np
 from typing import List
 
 
-def normalize_adjust_lens(matrix: np.array, target_len: int, embed_len: int) -> np.array:
+def normalize_adjust_lens(
+    matrix: np.array, target_len: int, embed_len: int
+) -> np.array:
     matrix_adjusted = np.zeros((target_len, embed_len))
     for i in range(embed_len):
         vector = list(matrix[:, i])
         vector = adjust_list_len(vector, target_len)
         matrix_adjusted[:, i] = np.array(vector)
     return matrix_adjusted
+
 
 def normalize_avg_semantics(matrix: np.array) -> np.array:
     return np.mean(matrix, axis=0)
@@ -47,9 +50,12 @@ class VectorizeWithDict(BaseVectorize):
             vectors = [np.zeros(self._embed_len)]
         return np.array(vectors)
 
-    def vectorize(self, strings: List[str]):
+    def vectorize(self, strings: List[str]) -> List[np.array]:
         vectorized = [self._string_to_vector(string) for string in strings]
-        return [normalize_adjust_lens(matrix, self._max_len, self._embed_len) for matrix in vectorized]
+        return [
+            normalize_adjust_lens(matrix, self._max_len, self._embed_len)
+            for matrix in vectorized
+        ]
 
     def last_unknown_prop(self):
         prop = self._unknown_token_count / self._total_tokens

@@ -15,7 +15,7 @@ def test_perpendicular_search():
     assert result[0] == 0
     result = search.search(np.array([-0.10, 0.2]))
     assert (len(result)) == 1
-    assert result[0]== 0
+    assert result[0] == 0
 
     result = search.search(np.array([0.9999, 1.0]))
     assert len(result) == 1

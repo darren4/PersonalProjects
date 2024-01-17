@@ -6,13 +6,16 @@ from sklearn.model_selection import train_test_split
 import os
 
 # %%
-word_vector_dict, EMBED_LEN = get_vector_dict(f"{os.getenv('PYTHONPATH')}/nlp/glove/embeddings/instagram_vectors.txt")
+word_vector_dict, EMBED_LEN = get_vector_dict(
+    f"{os.getenv('PYTHONPATH')}/nlp/glove/embeddings/instagram_vectors.txt"
+)
 
 # %%
 ig_data = pd.read_csv(f"{os.getenv('PYTHONPATH')}/nlp/data/instagram_sample.csv")
 
 vectorizer = VectorizeWithDict(word_vector_dict, EMBED_LEN)
 ig_data["matrix"] = pd.Series(vectorizer.vectorize(list(ig_data["review_description"])))
+
 
 # %%
 def _normalize_matrix(row):
