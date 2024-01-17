@@ -57,7 +57,7 @@ start_time = time.time()
 correct = 0
 for i in range(len(securities_df)):
     query = securities_df[Y_MAT][i]
-    result = vector_search.search(query)[0]
+    result = vector_search.search(query, approx_max_result_count=1)[0]
     if securities_df["ticker_x"][result] == securities_df["ticker_y"][i]:
         correct += 1
 logger.log(f"Accuracy: {correct / len((securities_df))}")
