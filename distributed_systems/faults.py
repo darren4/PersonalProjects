@@ -1,7 +1,7 @@
 import random
 
 
-FAULTS_ENABLED = True
+FAULTS_ENABLED = False
 DEBUG = False
 PROCESS_KILL_WAIT = 1
 

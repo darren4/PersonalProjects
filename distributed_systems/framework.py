@@ -3,7 +3,7 @@ from distributed_systems import faults
 import sys
 import time
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import List, Dict, Type
 from threading import Lock, Thread, Condition
 import random
 
@@ -22,10 +22,25 @@ MSG = "MESSAGE"
 
 class ProcessFramework(ABC):
     """
+    Usage:
+        Implemented helpers:
+            - get_id -> get process id
+            - send_msg -> send msg to process by id
+        
+        Mandatory implement:
+            - read_msg -> process message
+            - start -> start process execution
+        
+        Optional implement:
+            - initialize -> called before any process starts execution
+        
+        Other:
+            - complete -> call when process done
+    
     Rules:
         1. Do not apply thread controls (like threading.Lock) to static variables
             Reason: These only work on single machines, not distributed systems
-        2. Inter-process communication must go through the helper functions read_msg and send_msg
+        2. Inter-process communication must go through functions read_msg and send_msg
             Reason: Simulated message dropping can be bypassed this way
         3. Do not catch SystemExit exceptions
             Reason: Simulated hardware failures can be bypassed this way
@@ -43,18 +58,9 @@ class ProcessFramework(ABC):
 
     def initialize(self):
         """
-        Effectively process constructor. Optional to implement.
+        Custom portion of process constructor. Optional to implement.
         """
         pass
-
-    def force_shutdown(self):
-        with self._alive_lock:
-            self._alive = False
-        self.complete(success=False)
-
-    def still_alive(self):
-        with self._alive_lock:
-            return self._alive
 
     @classmethod
     def set_input(cls, input):
@@ -62,6 +68,10 @@ class ProcessFramework(ABC):
 
     def get_id(self):
         return self._id
+
+    @abstractmethod
+    def start(self):
+        raise NotImplementedError()
 
     @abstractmethod
     def read_msg(self, source_id, msg):
@@ -77,9 +87,19 @@ class ProcessFramework(ABC):
             sys.exit()
         DistributedSystem.msg_to_process(self.get_id(), target_id, msg)
 
-    @abstractmethod
-    def start(self):
-        raise NotImplementedError()
+    def new_process(self, process_def: Type):
+        process_instance = DistributedSystem.initialize_process(process_def)
+        Thread(target=process_instance.start).start()
+        return process_instance.get_id()
+
+    def force_shutdown(self):
+        with self._alive_lock:
+            self._alive = False
+        self.complete(success=False)
+
+    def still_alive(self):
+        with self._alive_lock:
+            return self._alive
 
     def complete(self, success=True):
         if success:
@@ -88,11 +108,11 @@ class ProcessFramework(ABC):
             print(f"Process {self.get_id()} suffered an unplanned shutdown")
         DistributedSystem.end_process(self.get_id())
 
-
 class DistributedSystem:
     _processes: Dict[int, ProcessFramework] = {}
     _processes_lock = Lock()
     _processes_cv = Condition(_processes_lock)
+    _next_process_id = 0
 
     @classmethod
     def shut_down_processes(cls):
@@ -102,13 +122,22 @@ class DistributedSystem:
                 random.choice(list(cls._processes.values())).force_shutdown()
 
     @classmethod
-    def process_input(cls, input, processes: List[ProcessFramework]):
+    def initialize_process(cls, process_def: Type):
+        if not cls._processes_lock.locked():
+            raise RuntimeError("Process lock not held")
+        process_instance = process_def(cls._next_process_id)
+        cls._next_process_id += 1
+        cls._processes[process_instance.get_id()] = process_instance
+        return process_instance
+
+    @classmethod
+    def process_input(cls, input, process_defs: List[Type]):
         ProcessFramework.set_input(input)
         with cls._processes_lock:
             threads: List[Thread] = []
-            for process in processes:
-                cls._processes[process.get_id()] = process
-                threads.append(Thread(target=process.start))
+            for process_def in process_defs:
+                process_instance = cls.initialize_process(process_def)
+                threads.append(Thread(target=process_instance.start))
             for thread in threads:
                 thread.start()
         if faults.FAULTS_ENABLED:

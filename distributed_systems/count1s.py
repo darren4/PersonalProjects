@@ -88,14 +88,14 @@ class Worker(Process):
 if __name__ == "__main__":
     system_input = "000101111000010010000101111000010010"
     print(f"Input length: {len(system_input)}")
-    processes = [
-        Manager(MANAGER_ID),
-        Guard(GUARD_ID),
-        Worker(WORKER_0_ID),
-        Worker(WORKER_1_ID),
+    process_defs = [
+        Manager,
+        Guard,
+        Worker,
+        Worker,
     ]
     start_time = time.time()
-    DistributedSystem.process_input(system_input, processes)
+    DistributedSystem.process_input(system_input, process_defs)
     output = DistributedSystem.wait_for_completion()
     print(f"Runtime: {time.time() - start_time}")
 
