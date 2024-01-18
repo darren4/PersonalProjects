@@ -3,6 +3,7 @@ import random
 
 FAULTS_ENABLED = True
 DEBUG = False
+PROCESS_KILL_WAIT = 1
 
 
 def message_not_sent():
