@@ -1,5 +1,4 @@
 # %%
-
 from nlp.glove.read_vectors import get_vector_dict
 from nlp.vectorize.vectorize_with_dict import VectorizeWithDict
 from nlp.vectorize.vectorize_with_hg import VectorizeWithHG
@@ -50,7 +49,7 @@ logger.log(f"Vector normalization time: {time.time() - start_time}")
 # %%
 start_time = time.time()
 vector_search = LinearVectorSearch(list(securities_df[X_MAT]))
-# vector_search = PerpendicularSearch(list(securities_df[X_MAT]))
+# vector_search = PerpendicularSearch(list(securities_df[X_MAT]), coverage_cutoff=0.5)
 logger.log(f"Loaded vectors into search in {time.time() - start_time} seconds")
 
 start_time = time.time()
