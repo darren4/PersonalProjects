@@ -27,7 +27,7 @@ securities_df = pd.read_csv(
 # logger.log(f"Embeddings load time: {time.time() - start_time}")
 # vectorizer = VectorizeWithDict(securities_embeddings_dict, embed_len)
 
-vectorizer = VectorizeWithHG('sentence-t5-base')
+vectorizer = VectorizeWithHG("sentence-t5-base")
 
 start_time = time.time()
 securities_df[X_MAT] = pd.Series(list(vectorizer.vectorize(securities_df[X_WORDS])))

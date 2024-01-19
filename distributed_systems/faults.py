@@ -3,7 +3,6 @@ import random
 
 FAULTS_ENABLED = False
 DEBUG = False
-PROCESS_KILL_WAIT = 1
 
 
 def message_not_sent():
@@ -11,3 +10,7 @@ def message_not_sent():
     if DEBUG and failure:
         print("[DEBUG] message not sent")
     return failure
+
+
+def wait_time_before_kill_process():
+    return random.randint(1, 2)

@@ -89,9 +89,6 @@ if __name__ == "__main__":
     system_input = "000101111000010010000101111000010010"
     print(f"Input length: {len(system_input)}")
     process_defs = [
-        Manager,
-        Guard,
-        Worker,
         Worker,
     ]
     start_time = time.time()

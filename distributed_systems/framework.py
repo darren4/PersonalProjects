@@ -26,17 +26,17 @@ class ProcessFramework(ABC):
         Implemented helpers:
             - get_id -> get process id
             - send_msg -> send msg to process by id
-        
+
         Mandatory implement:
             - read_msg -> process message
             - start -> start process execution
-        
+
         Optional implement:
             - initialize -> called before any process starts execution
-        
+
         Other:
             - complete -> call when process done
-    
+
     Rules:
         1. Do not apply thread controls (like threading.Lock) to static variables
             Reason: These only work on single machines, not distributed systems
@@ -108,6 +108,7 @@ class ProcessFramework(ABC):
             print(f"Process {self.get_id()} suffered an unplanned shutdown")
         DistributedSystem.end_process(self.get_id())
 
+
 class DistributedSystem:
     _processes: Dict[int, ProcessFramework] = {}
     _processes_lock = Lock()
@@ -117,7 +118,7 @@ class DistributedSystem:
     @classmethod
     def shut_down_processes(cls):
         while cls.some_processes_alive():
-            time.sleep(faults.PROCESS_KILL_WAIT)
+            time.sleep(faults.wait_time_before_kill_process())
             with cls._processes_lock:
                 random.choice(list(cls._processes.values())).force_shutdown()
 
