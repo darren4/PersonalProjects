@@ -22,7 +22,10 @@ class Msg:
 
 
 class Process(ProcessFramework):
-    def initialize(self):
+    def start(self, msg=None):
+        """
+        Call in first line of start in inherited class
+        """
         self.general_inbox: Queue[Dict] = Queue()
         self.focused_inbox: Queue[Dict] = Queue()
 

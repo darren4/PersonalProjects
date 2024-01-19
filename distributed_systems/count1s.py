@@ -15,7 +15,8 @@ WORKER_COUNT = 2
 
 
 class Manager(Process):
-    def start(self):
+    def start(self, msg=None):
+        super().start(msg)
         ProcessFramework.output = 0
         bite_size = 5
         input_len = len(ProcessFramework.input)
@@ -31,11 +32,9 @@ class Manager(Process):
 
 
 class Guard(Process):
-    def __init__(self, id):
-        super().__init__(id)
+    def start(self, msg=None):
+        super().start(msg)
         self.owner = None
-
-    def start(self):
         while True:
             src_and_msg = self.get_one_msg()
             src: int = int(src_and_msg[SRC])
@@ -72,7 +71,8 @@ class Worker(Process):
         ProcessFramework.output += one_count
         self.send_msg_verify(GUARD_ID, Msg())
 
-    def start(self):
+    def start(self, msg=None):
+        super().start(msg)
         while True:
             self.send_msg_verify(MANAGER_ID, Msg())
             msg = self.get_one_msg()
@@ -88,11 +88,14 @@ class Worker(Process):
 if __name__ == "__main__":
     system_input = "000101111000010010000101111000010010"
     print(f"Input length: {len(system_input)}")
-    process_defs = [
+    processes = [
+        Manager,
+        Guard,
+        Worker,
         Worker,
     ]
     start_time = time.time()
-    DistributedSystem.process_input(system_input, process_defs)
+    DistributedSystem.process_input(system_input, processes)
     output = DistributedSystem.wait_for_completion()
     print(f"Runtime: {time.time() - start_time}")
 

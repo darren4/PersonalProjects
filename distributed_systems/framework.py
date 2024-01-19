@@ -31,9 +31,6 @@ class ProcessFramework(ABC):
             - read_msg -> process message
             - start -> start process execution
 
-        Optional implement:
-            - initialize -> called before any process starts execution
-
         Other:
             - complete -> call when process done
 
@@ -54,13 +51,6 @@ class ProcessFramework(ABC):
         self._id = id
         self._alive = True
         self._alive_lock = Lock()
-        self.initialize()
-
-    def initialize(self):
-        """
-        Custom portion of process constructor. Optional to implement.
-        """
-        pass
 
     @classmethod
     def set_input(cls, input):
@@ -70,7 +60,7 @@ class ProcessFramework(ABC):
         return self._id
 
     @abstractmethod
-    def start(self):
+    def start(self, msg=None):
         raise NotImplementedError()
 
     @abstractmethod
@@ -87,9 +77,9 @@ class ProcessFramework(ABC):
             sys.exit()
         DistributedSystem.msg_to_process(self.get_id(), target_id, msg)
 
-    def new_process(self, process_def: Type):
+    def new_process(self, process_def: Type, msg=None):
         process_instance = DistributedSystem.initialize_process(process_def)
-        Thread(target=process_instance.start).start()
+        Thread(target=process_instance.start, args=[msg]).start()
         return process_instance.get_id()
 
     def force_shutdown(self):
@@ -126,7 +116,7 @@ class DistributedSystem:
     def initialize_process(cls, process_def: Type):
         if not cls._processes_lock.locked():
             raise RuntimeError("Process lock not held")
-        process_instance = process_def(cls._next_process_id)
+        process_instance: ProcessFramework = process_def(cls._next_process_id)
         cls._next_process_id += 1
         cls._processes[process_instance.get_id()] = process_instance
         return process_instance
