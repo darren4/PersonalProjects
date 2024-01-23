@@ -16,9 +16,6 @@ Simple User Journey
 4. [DISTRIBUTE] Start processes in certain order
 """
 
-SRC = "SOURCE"
-MSG = "MESSAGE"
-
 
 class ProcessFramework(ABC):
     """
@@ -64,21 +61,21 @@ class ProcessFramework(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def read_msg(self, source_id, msg):
+    def read_msg(self, msg):
         raise NotImplementedError()
 
-    def receive_msg(self, source_id, msg):
-        Thread(target=self.read_msg, args=[source_id, msg]).start()
+    def receive_msg(self, msg):
+        Thread(target=self.read_msg, args=[msg]).start()
 
     def send_msg(self, target_id, msg=None):
         if faults.message_not_sent():
             return
         if not self.still_alive():
             sys.exit()
-        DistributedSystem.msg_to_process(self.get_id(), target_id, msg)
+        DistributedSystem.msg_to_process(target_id, msg)
 
-    def new_process(self, process_def: Type, msg=None):
-        process_instance = DistributedSystem.initialize_process(process_def)
+    def new_process(self, process_def: Type, process_id:int, msg=None):
+        process_instance = DistributedSystem.initialize_process(process_def, process_id)
         Thread(target=process_instance.start, args=[msg]).start()
         return process_instance.get_id()
 
@@ -103,7 +100,6 @@ class DistributedSystem:
     _processes: Dict[int, ProcessFramework] = {}
     _processes_lock = Lock()
     _processes_cv = Condition(_processes_lock)
-    _next_process_id = 0
 
     @classmethod
     def shut_down_processes(cls):
@@ -113,11 +109,12 @@ class DistributedSystem:
                 random.choice(list(cls._processes.values())).force_shutdown()
 
     @classmethod
-    def initialize_process(cls, process_def: Type):
+    def initialize_process(cls, process_def: Type, process_id:int):
         if not cls._processes_lock.locked():
             raise RuntimeError("Process lock not held")
-        process_instance: ProcessFramework = process_def(cls._next_process_id)
-        cls._next_process_id += 1
+        if process_id in cls._processes:
+            raise ValueError(f"Process already holding id {process_id}")
+        process_instance: ProcessFramework = process_def(process_id)
         cls._processes[process_instance.get_id()] = process_instance
         return process_instance
 
@@ -126,8 +123,8 @@ class DistributedSystem:
         ProcessFramework.set_input(input)
         with cls._processes_lock:
             threads: List[Thread] = []
-            for process_def in process_defs:
-                process_instance = cls.initialize_process(process_def)
+            for process_id in range(len(process_defs)):
+                process_instance = cls.initialize_process(process_defs[process_id])
                 threads.append(Thread(target=process_instance.start))
             for thread in threads:
                 thread.start()
@@ -135,10 +132,10 @@ class DistributedSystem:
             Thread(target=cls.shut_down_processes).start()
 
     @classmethod
-    def msg_to_process(cls, source_id, target_id, msg):
+    def msg_to_process(cls, target_id, msg):
         try:
             with cls._processes_lock:
-                cls._processes[target_id].receive_msg(source_id, msg)
+                cls._processes[target_id].receive_msg(msg)
         except KeyError:
             pass
 

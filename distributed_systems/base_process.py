@@ -1,4 +1,4 @@
-from distributed_systems.framework import ProcessFramework, DistributedSystem, SRC, MSG
+from distributed_systems.framework import ProcessFramework, DistributedSystem
 
 from threading import Lock, Condition, Thread
 from queue import Queue
@@ -14,8 +14,9 @@ class MsgType(Enum):
 
 class Msg:
     def __init__(
-        self, msg_type: MsgType = MsgType.REG, msg_content=None, ack_msg: int = -1
+        self, src: int, msg_type: MsgType = MsgType.REG, msg_content=None, ack_msg: int = -1
     ):
+        self.src = src
         self.type: MsgType = msg_type
         self.content = msg_content
         self.ack: int = ack_msg
@@ -41,42 +42,40 @@ class Process(ProcessFramework):
 
         Thread(target=self._keep_checking_msgs).start()
 
-    def read_msg(self, source_id: int, msg: Msg):
-        self.general_inbox.put({SRC: source_id, MSG: msg})
+    def read_msg(self, msg: Msg):
+        self.general_inbox.put(msg)
 
     def _keep_checking_msgs(self):
         while True:
             try:
-                src_and_msg = self.general_inbox.get(timeout=0.1)
+                msg: Msg = self.general_inbox.get(timeout=0.1)
             except queue.Empty:
                 if self.check_done_processing():
                     self.complete()
                     return
                 else:
                     continue
-            source = src_and_msg[SRC]
-            msg: Msg = src_and_msg[MSG]
             if msg.type == MsgType.ACK:
                 with self._waiting_acks_lock:
                     self._waiting_acks[msg.ack] = False
                     self._waiting_acks_cv.notify_all()
             elif msg.type == MsgType.REG:
-                ack_msg = Msg(msg_type=MsgType.ACK, ack_msg=msg.ack)
-                self.send_msg(source, ack_msg)
-                unique_msg_id = f"{source}~{msg.ack}"
-                needs_processing = False
+                ack_msg = Msg(self.get_id(), msg_type=MsgType.ACK, ack_msg=msg.ack)
+                self.send_msg(msg.src, ack_msg)
+                unique_msg_id = f"{msg.src}~{msg.ack}"
                 with self._processed_msgs_lock:
                     if unique_msg_id not in self._processed_msgs:
                         self._processed_msgs.add(unique_msg_id)
-                        needs_processing = True
-                if needs_processing:
-                    self.focused_inbox.put(src_and_msg)
+                        self.focused_inbox.put(msg)
             else:
                 print(f"[DEBUG] Unrecognized message type: {msg.type}")
                 assert False
 
-    def get_one_msg(self):
-        return self.focused_inbox.get()
+    def get_one_msg(self, timeout=None):
+        try:
+            return self.focused_inbox.get(timeout=timeout)
+        except queue.Empty:
+            return None
 
     def _wait_on_msg_id(self) -> int:
         with self._waiting_acks_lock:
@@ -93,11 +92,7 @@ class Process(ProcessFramework):
             while self._waiting_acks[msg_id]:
                 success = self._waiting_acks_cv.wait(timeout=retry_time)
                 if not success:
-                    try:
-                        self.send_msg(target, msg)
-                    except DistributedSystem.NonExistentProcess as e:
-                        assert e.process == target
-                        return
+                    self.send_msg(target, msg)
 
     def set_done_processing(self):
         with self._done_processing_lock:
