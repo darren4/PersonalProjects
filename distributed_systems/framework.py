@@ -79,20 +79,14 @@ class ProcessFramework(ABC):
         Thread(target=process_instance.start, args=[msg]).start()
         return process_instance.get_id()
 
-    def force_shutdown(self):
-        with self._alive_lock:
-            self._alive = False
-        self.complete(success=False)
-
     def still_alive(self):
         with self._alive_lock:
             return self._alive
 
-    def complete(self, success=True):
-        if success:
-            print(f"Process {self.get_id()} completed successfully")
-        else:
-            print(f"Process {self.get_id()} suffered an unplanned shutdown")
+    def complete(self):
+        with self._alive_lock:
+            self._alive = False
+        print(f"Process {self.get_id()} completed successfully")
         DistributedSystem.end_process(self.get_id())
 
 
@@ -106,7 +100,13 @@ class DistributedSystem:
         while cls.some_processes_alive():
             time.sleep(faults.wait_time_before_kill_process())
             with cls._processes_lock:
-                random.choice(list(cls._processes.values())).force_shutdown()
+                try:
+                    process = random.choice(list(cls._processes.values()))
+                    print(f"Process {process.get_id()} experienced hardware failure")
+                    del cls._processes[process.get_id()]
+                    cls._processes_cv.notify()
+                except IndexError:
+                    continue
 
     @classmethod
     def initialize_process(cls, process_def: Type, process_id: int):
@@ -156,5 +156,4 @@ class DistributedSystem:
             while cls._processes:
                 cls._processes_cv.wait()
         print("Distributed system completed successfully")
-        print(ProcessFramework.output)
         return ProcessFramework.output
