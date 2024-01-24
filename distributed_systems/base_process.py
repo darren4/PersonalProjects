@@ -14,7 +14,11 @@ class MsgType(Enum):
 
 class Msg:
     def __init__(
-        self, src: int, msg_type: MsgType = MsgType.REG, msg_content=None, ack_msg: int = -1
+        self,
+        src: int,
+        msg_type: MsgType = MsgType.REG,
+        msg_content=None,
+        ack_msg: int = -1,
     ):
         self.src = src
         self.type: MsgType = msg_type

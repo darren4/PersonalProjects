@@ -74,7 +74,7 @@ class ProcessFramework(ABC):
             sys.exit()
         DistributedSystem.msg_to_process(target_id, msg)
 
-    def new_process(self, process_def: Type, process_id:int, msg=None):
+    def new_process(self, process_def: Type, process_id: int, msg=None):
         process_instance = DistributedSystem.initialize_process(process_def, process_id)
         Thread(target=process_instance.start, args=[msg]).start()
         return process_instance.get_id()
@@ -109,25 +109,25 @@ class DistributedSystem:
                 random.choice(list(cls._processes.values())).force_shutdown()
 
     @classmethod
-    def initialize_process(cls, process_def: Type, process_id:int):
-        if not cls._processes_lock.locked():
-            raise RuntimeError("Process lock not held")
-        if process_id in cls._processes:
-            raise ValueError(f"Process already holding id {process_id}")
-        process_instance: ProcessFramework = process_def(process_id)
-        cls._processes[process_instance.get_id()] = process_instance
-        return process_instance
+    def initialize_process(cls, process_def: Type, process_id: int):
+        with cls._processes_lock:
+            if process_id in cls._processes:
+                raise ValueError(f"Process already holding id {process_id}")
+            process_instance: ProcessFramework = process_def(process_id)
+            cls._processes[process_instance.get_id()] = process_instance
+            return process_instance
 
     @classmethod
     def process_input(cls, input, process_defs: List[Type]):
         ProcessFramework.set_input(input)
-        with cls._processes_lock:
-            threads: List[Thread] = []
-            for process_id in range(len(process_defs)):
-                process_instance = cls.initialize_process(process_defs[process_id])
-                threads.append(Thread(target=process_instance.start))
-            for thread in threads:
-                thread.start()
+        threads: List[Thread] = []
+        for process_id in range(len(process_defs)):
+            process_instance = cls.initialize_process(
+                process_defs[process_id], process_id
+            )
+            threads.append(Thread(target=process_instance.start))
+        for thread in threads:
+            thread.start()
         if faults.FAULTS_ENABLED:
             Thread(target=cls.shut_down_processes).start()
 
@@ -156,4 +156,5 @@ class DistributedSystem:
             while cls._processes:
                 cls._processes_cv.wait()
         print("Distributed system completed successfully")
+        print(ProcessFramework.output)
         return ProcessFramework.output
