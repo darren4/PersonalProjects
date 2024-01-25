@@ -89,9 +89,9 @@ class ProcessFramework(ABC):
         with self._alive_status_lock:
             self._alive_status = False
         if success:
-            print(f"Process {self.get_id()} completed successfully")
+            print(f"[STATUS] Process {self.get_id()} completed successfully")
         else:
-            print(f"Process {self.get_id()} experienced hardware failure")
+            print(f"[STATUS] Process {self.get_id()} experienced hardware failure")
         DistributedSystem.end_process(self.get_id())
 
 
@@ -158,5 +158,5 @@ class DistributedSystem:
         with cls._processes_lock:
             while cls._processes:
                 cls._processes_cv.wait()
-        print("Distributed system completed successfully")
+        print("[STATUS] Distributed system completed successfully")
         return ProcessFramework.output

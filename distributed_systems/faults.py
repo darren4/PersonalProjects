@@ -13,4 +13,4 @@ def message_not_sent():
 
 
 def wait_time_before_kill_process():
-    return random.randint(3, 4)
+    return random.randint(2, 2)

@@ -52,6 +52,7 @@ class Worker(Process):
                     next_to_process = self.process_range[1]
                 try:
                     if not self.check_done_processing():
+                        print(f"[RECOVER] Reviving worker {worker_id}")
                         self.new_process(
                             Worker,
                             worker_id,
@@ -109,17 +110,17 @@ class Worker(Process):
 
 if __name__ == "__main__":
     system_input = "000101111000010010000101111000010010"
-    print(f"Input length: {len(system_input)}")
+    print(f"[SETUP] Input length: {len(system_input)}")
     processes = [Worker]
     start_time = time.time()
     DistributedSystem.process_input(system_input, processes)
     output = DistributedSystem.wait_for_completion()
-    print(f"Runtime: {time.time() - start_time}")
+    print(f"[RESULT] Runtime: {time.time() - start_time}")
 
     correct_count = 0
     for char in system_input:
         if char == "1":
             correct_count += 1
-    print(f"Correct: {correct_count}")
-    print(f"Actual: {output}")
+    print(f"[RESULT] Correct: {correct_count}")
+    print(f"[RESULT] Actual: {output}")
     assert output == correct_count
