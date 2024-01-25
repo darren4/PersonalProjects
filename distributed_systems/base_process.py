@@ -72,7 +72,6 @@ class Process(ProcessFramework):
                         self._processed_msgs.add(unique_msg_id)
                         self.focused_inbox.put(msg)
             else:
-                print(f"[DEBUG] Unrecognized message type: {msg.type}")
                 assert False
 
     def get_one_msg(self, timeout=None):
@@ -104,4 +103,4 @@ class Process(ProcessFramework):
 
     def check_done_processing(self) -> bool:
         with self._done_processing_lock:
-            return self._done_processing
+            return self._done_processing or not self.get_alive_status()

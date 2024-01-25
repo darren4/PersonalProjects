@@ -46,8 +46,8 @@ class ProcessFramework(ABC):
 
     def __init__(self, id):
         self._id = id
-        self._alive = True
-        self._alive_lock = Lock()
+        self._alive_status = True
+        self._alive_status_lock = Lock()
 
     @classmethod
     def set_input(cls, input):
@@ -70,7 +70,7 @@ class ProcessFramework(ABC):
     def send_msg(self, target_id, msg=None):
         if faults.message_not_sent():
             return
-        if not self.still_alive():
+        if not self.get_alive_status():
             sys.exit()
         DistributedSystem.msg_to_process(target_id, msg)
 
@@ -79,14 +79,19 @@ class ProcessFramework(ABC):
         Thread(target=process_instance.start, args=[msg]).start()
         return process_instance.get_id()
 
-    def still_alive(self):
-        with self._alive_lock:
-            return self._alive
+    def get_alive_status(self):
+        with self._alive_status_lock:
+            return self._alive_status
 
-    def complete(self):
-        with self._alive_lock:
-            self._alive = False
-        print(f"Process {self.get_id()} completed successfully")
+    def complete(self, success=True):
+        if not self.get_alive_status():
+            return
+        with self._alive_status_lock:
+            self._alive_status = False
+        if success:
+            print(f"Process {self.get_id()} completed successfully")
+        else:
+            print(f"Process {self.get_id()} experienced hardware failure")
         DistributedSystem.end_process(self.get_id())
 
 
@@ -102,11 +107,9 @@ class DistributedSystem:
             with cls._processes_lock:
                 try:
                     process = random.choice(list(cls._processes.values()))
-                    print(f"Process {process.get_id()} experienced hardware failure")
-                    del cls._processes[process.get_id()]
-                    cls._processes_cv.notify()
                 except IndexError:
                     continue
+            process.complete(False)
 
     @classmethod
     def initialize_process(cls, process_def: Type, process_id: int):
