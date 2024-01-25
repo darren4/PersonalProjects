@@ -113,6 +113,7 @@ class DistributedSystem:
 
     @classmethod
     def initialize_process(cls, process_def: Type, process_id: int):
+        print(f"[STATUS] Starting process {process_id}")
         with cls._processes_lock:
             if process_id in cls._processes:
                 raise ValueError(f"Process already holding id {process_id}")
@@ -158,5 +159,5 @@ class DistributedSystem:
         with cls._processes_lock:
             while cls._processes:
                 cls._processes_cv.wait()
-        print("[STATUS] Distributed system completed successfully")
+        print("[STATUS] No remaining running processes")
         return ProcessFramework.output
