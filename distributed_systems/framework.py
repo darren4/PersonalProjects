@@ -113,11 +113,11 @@ class DistributedSystem:
 
     @classmethod
     def initialize_process(cls, process_def: Type, process_id: int):
-        print(f"[STATUS] Starting process {process_id}")
         with cls._processes_lock:
             if process_id in cls._processes:
                 raise ValueError(f"Process already holding id {process_id}")
             process_instance: ProcessFramework = process_def(process_id)
+            print(f"[STATUS] Starting process {process_id}")
             cls._processes[process_instance.get_id()] = process_instance
             return process_instance
 
@@ -132,7 +132,7 @@ class DistributedSystem:
             threads.append(Thread(target=process_instance.start))
         for thread in threads:
             thread.start()
-        if faults.FAULTS_ENABLED:
+        if faults.PROCESS_FAULTS_ENABLED:
             Thread(target=cls.shut_down_processes).start()
 
     @classmethod

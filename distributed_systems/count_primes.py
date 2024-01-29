@@ -1,5 +1,5 @@
 from distributed_systems.framework import ProcessFramework, DistributedSystem
-from distributed_systems.base_process import Msg, Process
+from distributed_systems.base_process import Msg, Process, MsgType
 
 import time
 import math
@@ -16,8 +16,8 @@ def check_prime(num):
     return True
 
 
-BITE_SIZE = 40000
-DEFAULT_HEARTBEAT_WAIT = 1
+BITE_SIZE = 30000
+DEFAULT_HEARTBEAT_WAIT = 5
 DEFAULT_MAX_HEARTBEAT_WAIT = 20
 
 
@@ -53,7 +53,7 @@ class Worker(Process):
 
     def send_heartbeats(self, target, wait_time=DEFAULT_HEARTBEAT_WAIT):
         while not self.check_done_processing():
-            self.send_msg(target, Msg(self.get_id(), msg_content=None))
+            self.send_msg(target, Msg(self.get_id(), msg_type=MsgType.HEART, msg_content=None))
             time.sleep(wait_time)
 
     def get_next_worker_results(

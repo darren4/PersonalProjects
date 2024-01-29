@@ -10,6 +10,7 @@ from typing import Dict, Set
 class MsgType(Enum):
     ACK = 1
     REG = 2
+    HEART = 3
 
 
 class Msg:
@@ -63,6 +64,8 @@ class Process(ProcessFramework):
                 with self._waiting_acks_lock:
                     self._waiting_acks[msg.ack] = False
                     self._waiting_acks_cv.notify_all()
+            elif msg.type == MsgType.HEART:
+                self.focused_inbox.put(msg)
             elif msg.type == MsgType.REG:
                 ack_msg = Msg(self.get_id(), msg_type=MsgType.ACK, ack_msg=msg.ack)
                 self.send_msg(msg.src, ack_msg)
