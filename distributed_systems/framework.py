@@ -1,5 +1,3 @@
-from distributed_systems import faults
-
 import sys
 import time
 from abc import ABC, abstractmethod
@@ -15,6 +13,9 @@ Simple User Journey
 3. [DISTRIBUTE] Add input to shared state
 4. [DISTRIBUTE] Start processes in certain order
 """
+
+MESSAGE_FAULTS_ENABLED = True
+PROCESS_FAULTS_ENABLED = True
 
 
 class ProcessFramework(ABC):
@@ -68,7 +69,8 @@ class ProcessFramework(ABC):
         Thread(target=self.read_msg, args=[msg]).start()
 
     def send_msg(self, target_id, msg=None):
-        if faults.message_not_sent():
+        if MESSAGE_FAULTS_ENABLED and random.randint(0, 10) == 0:
+            # Hardware Failure
             return
         if not self.get_alive_status():
             sys.exit()
@@ -77,7 +79,6 @@ class ProcessFramework(ABC):
     def new_process(self, process_def: Type, process_id: int, msg=None):
         process_instance = DistributedSystem.initialize_process(process_def, process_id)
         Thread(target=process_instance.start, args=[msg]).start()
-        return process_instance.get_id()
 
     def get_alive_status(self):
         with self._alive_status_lock:
@@ -102,17 +103,19 @@ class DistributedSystem:
 
     @classmethod
     def shut_down_processes(cls):
-        while cls.some_processes_alive():
-            time.sleep(faults.wait_time_before_kill_process())
-            with cls._processes_lock:
-                try:
-                    process = random.choice(list(cls._processes.values()))
-                except IndexError:
-                    continue
-            process.complete(False)
+        # Hardware Failure
+        time.sleep(5)
+        with cls._processes_lock:
+            try:
+                process = random.choice(list(cls._processes.values()))
+            except IndexError:
+                return
+        process.complete(False)
 
     @classmethod
     def initialize_process(cls, process_def: Type, process_id: int):
+        if not PROCESS_FAULTS_ENABLED:
+            return
         with cls._processes_lock:
             if process_id in cls._processes:
                 raise ValueError(f"Process already holding id {process_id}")
@@ -132,8 +135,7 @@ class DistributedSystem:
             threads.append(Thread(target=process_instance.start))
         for thread in threads:
             thread.start()
-        if faults.PROCESS_FAULTS_ENABLED:
-            Thread(target=cls.shut_down_processes).start()
+        Thread(target=cls.shut_down_processes).start()
 
     @classmethod
     def msg_to_process(cls, target_id, msg):

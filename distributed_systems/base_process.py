@@ -95,7 +95,7 @@ class Process(ProcessFramework):
         self.send_msg(target, msg)
 
         with self._waiting_acks_lock:
-            while self._waiting_acks[msg_id]:
+            while self._waiting_acks[msg_id] and not self.check_done_processing():
                 success = self._waiting_acks_cv.wait(timeout=retry_time)
                 if not success:
                     self.send_msg(target, msg)
