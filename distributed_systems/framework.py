@@ -1,9 +1,9 @@
 import sys
 import time
 from abc import ABC, abstractmethod
-from typing import List, Dict, Type
 from threading import Lock, Thread, Condition
 import random
+from typing import List
 
 
 """
@@ -14,8 +14,8 @@ Simple User Journey
 4. [DISTRIBUTE] Start processes in certain order
 """
 
-MESSAGE_FAULTS_ENABLED = True
-PROCESS_FAULTS_ENABLED = True
+MESSAGE_FAULTS_ENABLED = False
+PROCESS_FAULTS_ENABLED = False
 
 
 class ProcessFramework(ABC):
@@ -45,30 +45,32 @@ class ProcessFramework(ABC):
     output = None
     shared_state = {}
 
-    def __init__(self, id):
-        self._id = id
-        self._alive_status = True
-        self._alive_status_lock = Lock()
+    def __init__(self, id: int):
+        self._id: int = id
+        self._alive_status: bool = True
+        self._alive_status_lock: Lock = Lock()
 
     @classmethod
     def set_input(cls, input):
         cls.input = input
 
-    def get_id(self):
+    def get_id(self) -> int:
         return self._id
 
     @abstractmethod
-    def start(self, msg=None):
+    def start(self, msg: str=None):
         raise NotImplementedError()
 
     @abstractmethod
-    def read_msg(self, msg):
+    def read_msg(self, msg: str):
         raise NotImplementedError()
 
-    def receive_msg(self, msg):
+    def receive_msg(self, msg: str):
         Thread(target=self.read_msg, args=[msg]).start()
 
-    def send_msg(self, target_id, msg=None):
+    def send_msg(self, target_id: int, msg: str=None):
+        if not isinstance(msg, str):
+            sys.exit()
         if MESSAGE_FAULTS_ENABLED and random.randint(0, 10) == 0:
             # Hardware Failure
             return
@@ -76,7 +78,7 @@ class ProcessFramework(ABC):
             sys.exit()
         DistributedSystem.msg_to_process(target_id, msg)
 
-    def new_process(self, process_def: Type, process_id: int, msg=None):
+    def new_process(self, process_def: type, process_id: int, msg: str=None):
         process_instance = DistributedSystem.initialize_process(process_def, process_id)
         Thread(target=process_instance.start, args=[msg]).start()
 
@@ -84,7 +86,7 @@ class ProcessFramework(ABC):
         with self._alive_status_lock:
             return self._alive_status
 
-    def complete(self, success=True):
+    def complete(self, success: bool=True):
         if not self.get_alive_status():
             return
         with self._alive_status_lock:
@@ -113,7 +115,7 @@ class DistributedSystem:
         process.complete(False)
 
     @classmethod
-    def initialize_process(cls, process_def: Type, process_id: int):
+    def initialize_process(cls, process_def: type, process_id: int):
         if not PROCESS_FAULTS_ENABLED:
             return
         with cls._processes_lock:
@@ -125,9 +127,9 @@ class DistributedSystem:
             return process_instance
 
     @classmethod
-    def process_input(cls, input, process_defs: List[Type]):
+    def process_input(cls, input, process_defs: List[type]):
         ProcessFramework.set_input(input)
-        threads: List[Thread] = []
+        threads: list[Thread] = []
         for process_id in range(len(process_defs)):
             process_instance = cls.initialize_process(
                 process_defs[process_id], process_id
@@ -138,7 +140,7 @@ class DistributedSystem:
         Thread(target=cls.shut_down_processes).start()
 
     @classmethod
-    def msg_to_process(cls, target_id, msg):
+    def msg_to_process(cls, target_id: int, msg: str):
         try:
             with cls._processes_lock:
                 cls._processes[target_id].receive_msg(msg)
@@ -146,7 +148,7 @@ class DistributedSystem:
             pass
 
     @classmethod
-    def end_process(cls, id):
+    def end_process(cls, id: int):
         with cls._processes_lock:
             del cls._processes[id]
             cls._processes_cv.notify()

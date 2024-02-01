@@ -3,43 +3,51 @@ from distributed_systems.framework import ProcessFramework, DistributedSystem
 from threading import Lock, Condition, Thread
 from queue import Queue
 import queue
-from enum import Enum
-from typing import Dict, Set
+from enum import StrEnum
+import json
 
 
-class MsgType(Enum):
-    ACK = 1
-    REG = 2
-    HEART = 3
+class MsgType(StrEnum):
+    REGULAR = "regular"
+    HEARTBEAT = "heartbeat"
+    ACKNOWLEDGE = "acknowledge"
 
 
 class Msg:
     def __init__(
         self,
         src: int,
-        msg_type: MsgType = MsgType.REG,
-        msg_content=None,
+        msg_type: MsgType=MsgType.REGULAR,
+        msg_content: str=None,
         ack_msg: int = -1,
     ):
-        self.src = src
-        self.type: MsgType = msg_type
-        self.content = msg_content
+        self.src: int = src
+        self.type: str = msg_type
+        self.content: str = msg_content
         self.ack: int = ack_msg
+
+    def to_json(self):
+        return json.dumps(self.__dict__)
+    
+    @staticmethod
+    def from_json(json_str: str):
+        json_dict = json.loads(json_str)
+        return Msg(json_dict.src, MsgType(json_dict.msg_type), json_dict.msg_content, json_dict.ack_msg)
 
 
 class Process(ProcessFramework):
-    def start(self, msg=None):
+    def start(self, msg: str=None):
         """
         Call in first line of start in inherited class
         """
-        self.general_inbox: Queue[Dict] = Queue()
-        self.focused_inbox: Queue[Dict] = Queue()
+        self.general_inbox: Queue[Msg] = Queue()
+        self.focused_inbox: Queue[Msg] = Queue()
 
-        self._waiting_acks: Dict[int, bool] = {}
+        self._waiting_acks: dict[int, bool] = {}
         self._waiting_acks_lock: Lock = Lock()
         self._waiting_acks_cv: Condition = Condition(self._waiting_acks_lock)
 
-        self._processed_msgs: Set[str] = set()
+        self._processed_msgs: set[str] = set()
         self._processed_msgs_lock: Lock = Lock()
 
         self._done_processing: bool = False
@@ -47,8 +55,8 @@ class Process(ProcessFramework):
 
         Thread(target=self._keep_checking_msgs).start()
 
-    def read_msg(self, msg: Msg):
-        self.general_inbox.put(msg)
+    def read_msg(self, msg: str):
+        self.general_inbox.put(Msg.from_json(msg))
 
     def _keep_checking_msgs(self):
         while True:
@@ -60,14 +68,14 @@ class Process(ProcessFramework):
                     return
                 else:
                     continue
-            if msg.type == MsgType.ACK:
+            if msg.type == MsgType.ACKNOWLEDGE:
                 with self._waiting_acks_lock:
                     self._waiting_acks[msg.ack] = False
                     self._waiting_acks_cv.notify_all()
-            elif msg.type == MsgType.HEART:
+            elif msg.type == MsgType.HEARTBEAT:
                 self.focused_inbox.put(msg)
-            elif msg.type == MsgType.REG:
-                ack_msg = Msg(self.get_id(), msg_type=MsgType.ACK, ack_msg=msg.ack)
+            elif msg.type == MsgType.REGULAR:
+                ack_msg = Msg(self.get_id(), msg_type=MsgType.ACKNOWLEDGE, ack_msg=msg.ack)
                 self.send_msg(msg.src, ack_msg)
                 unique_msg_id = f"{msg.src}~{msg.ack}"
                 with self._processed_msgs_lock:
@@ -89,16 +97,17 @@ class Process(ProcessFramework):
             self._waiting_acks[msg_id] = True
             return msg_id
 
-    def send_msg_verify(self, target: int, msg: Msg, retry_time: float = 0.1):
+    def send_msg(self, target: int, msg: Msg, retry_time: float = 0.1):
         msg_id = self._wait_on_msg_id()
         msg.ack = msg_id
-        self.send_msg(target, msg)
+        msg_string = msg.to_json()
+        self.send_msg(target, msg_string)
 
         with self._waiting_acks_lock:
             while self._waiting_acks[msg_id] and not self.check_done_processing():
                 success = self._waiting_acks_cv.wait(timeout=retry_time)
                 if not success:
-                    self.send_msg(target, msg)
+                    self.send_msg(target, msg_string)
 
     def set_done_processing(self):
         with self._done_processing_lock:

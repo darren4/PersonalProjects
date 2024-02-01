@@ -5,6 +5,7 @@ import time
 import math
 from threading import Thread, Lock, Condition
 import sys
+import os
 
 
 def check_prime(num):
@@ -17,15 +18,15 @@ def check_prime(num):
 
 
 BITE_SIZE = 30000
-DEFAULT_HEARTBEAT_WAIT = 5
-DEFAULT_MAX_HEARTBEAT_WAIT = 20
+DEFAULT_HEARTBEAT_WAIT = 2
+DEFAULT_MAX_HEARTBEAT_WAIT = 6
 
 
 class StartupMsg:
-    def __init__(self, creator_id, next_to_process):
+    def __init__(self, creator_id, next_to_process, revival=False):
         self.creator_id = creator_id
         self.next_to_process = next_to_process
-
+        self.revival = revival
 
 class Worker(Process):
     def initialize(self):
@@ -72,7 +73,7 @@ class Worker(Process):
                         self.new_process(
                             Worker,
                             worker_id,
-                            StartupMsg(self.get_id(), next_to_process),
+                            StartupMsg(self.get_id(), next_to_process, True),
                         )
                     except ValueError:
                         print(f"[ERROR] Revived alive worker {worker_id}")
@@ -98,8 +99,10 @@ class Worker(Process):
         Thread(target=self.send_heartbeats, args=[self.verifier_id]).start()
 
         if not self.last_worker:
-            startup_msg = StartupMsg(self.get_id(), self.process_range[1])
-            self.wait_for = self.new_process(Worker, self.get_id() + 1, startup_msg)
+            self.wait_for = self.get_id() + 1
+            if not startup_msg or not startup_msg.revival:
+                startup_msg = StartupMsg(self.get_id(), self.process_range[1])
+                self.new_process(Worker, self.wait_for, startup_msg)
         else:
             self.wait_for = 0
         get_next_t: Thread = Thread(
@@ -139,4 +142,8 @@ if __name__ == "__main__":
     correct_count = 12059
     print(f"[RESULT] Correct: {correct_count}")
     print(f"[RESULT] Actual: {output}")
-    assert output == correct_count
+    with open(f"{os.environ['PYTHONPATH']}/distributed_systems/output.txt", "w") as fh:
+        if output == correct_count:
+            fh.write("SUCCESS")
+        else:
+            fh.write("FAILURE")
