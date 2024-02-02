@@ -1,7 +1,8 @@
-from distributed_systems.framework import ProcessFramework, DistributedSystem, SRC, MSG
+from distributed_systems.framework import ProcessFramework, DistributedSystem
 from distributed_systems.base_process import Msg, Process
 
 import time
+import sys
 
 
 DONE = "DONE"
@@ -21,40 +22,35 @@ class Manager(Process):
         input_len = len(ProcessFramework.input)
         for window_start in range(0, input_len, bite_size):
             window_end = min(window_start + bite_size, input_len)
-            msg = self.get_one_msg()
-            self.send_msg_verify(msg[SRC], Msg(msg_content=(window_start, window_end)))
+            msg: Msg = self.get_one_msg()
+            self.send_msg(msg.src, Msg.build_msg(f"{window_start}~{window_end}"))
         for _ in range(WORKER_COUNT):
             msg = self.get_one_msg()
-            self.send_msg_verify(msg[SRC], Msg(msg_content=DONE))
-        self.send_msg_verify(GUARD_ID, Msg(msg_content=DONE))
+            self.send_msg(msg.src, Msg.build_msg(msg_content=DONE))
+        self.send_msg(GUARD_ID, Msg.build_msg(msg_content=DONE))
         self.set_done_processing()
 
 
 class Guard(Process):
-    def __init__(self, id):
-        super().__init__(id)
-        self.owner = None
-
     def start(self):
+        self.owner = None
         while True:
-            src_and_msg = self.get_one_msg()
-            src: int = int(src_and_msg[SRC])
-            msg: Msg = src_and_msg[MSG]
+            msg = self.get_one_msg()
             if msg.content and msg.content == DONE:
                 break
             else:
                 if not self.owner:
-                    self.owner = src
-                    self.send_msg_verify(src, Msg(msg_content=True))
-                elif self.owner == src:
+                    self.owner = msg.src
+                    self.send_msg(msg.src, Msg.build_msg(msg_content="TRUE"))
+                elif self.owner == msg.src:
                     self.owner = None
                 else:
-                    self.send_msg_verify(src, Msg(msg_content=False))
+                    self.send_msg(msg.src, Msg.build_msg(msg_content=f"FALSE"))
         self.set_done_processing()
 
 
 class Worker(Process):
-    def _process_window(self, bounds):
+    def _process_window(self, bounds: tuple):
         input_window = ProcessFramework.input[bounds[0] : bounds[1]]
         one_count = 0
         for char in input_window:
@@ -63,36 +59,38 @@ class Worker(Process):
 
         holding_lock = False
         while not holding_lock:
-            self.send_msg_verify(GUARD_ID, Msg())
-            src_and_msg = self.get_one_msg()
-            src: int = src_and_msg[SRC]
-            msg: Msg = src_and_msg[MSG]
-            assert src == GUARD_ID
-            holding_lock = msg.content
+            self.send_msg(GUARD_ID, Msg.build_msg())
+            msg = self.get_one_msg()
+            assert msg.src == GUARD_ID
+            if msg.content == "TRUE":
+                holding_lock = True
         ProcessFramework.output += one_count
-        self.send_msg_verify(GUARD_ID, Msg())
+        self.send_msg(GUARD_ID, Msg.build_msg())
 
     def start(self):
         while True:
-            self.send_msg_verify(MANAGER_ID, Msg())
+            self.send_msg(MANAGER_ID, Msg.build_msg())
             msg = self.get_one_msg()
-            if msg[MSG].content == DONE:
+            msg_content: str = msg.content
+            if msg.content == DONE:
                 self.set_done_processing()
                 break
-            elif type(msg[MSG].content) == tuple:
-                self._process_window(msg[MSG].content)
+            elif msg_content.find("~") != -1:
+                range_list = msg_content.split("~")
+                self._process_window((range_list[0], range_list[1]))
             else:
-                print(f"[DEBUG] Unrecognized message: {msg[MSG].content}")
+                print(f"[DEBUG] Unrecognized message: {msg.content}")
+                sys.exit()
 
 
 if __name__ == "__main__":
     system_input = "000101111000010010000101111000010010"
     print(f"Input length: {len(system_input)}")
     processes = [
-        Manager(MANAGER_ID),
-        Guard(GUARD_ID),
-        Worker(WORKER_0_ID),
-        Worker(WORKER_1_ID),
+        Manager,
+        Guard,
+        Worker,
+        Worker,
     ]
     start_time = time.time()
     DistributedSystem.process_input(system_input, processes)

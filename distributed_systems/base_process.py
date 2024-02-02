@@ -16,7 +16,7 @@ class MsgType(StrEnum):
 class Msg:
     def __init__(
         self,
-        src: int,
+        src: int=-1,
         msg_type: MsgType=MsgType.REGULAR,
         msg_content: str=None,
         ack_msg: int = -1,
@@ -25,6 +25,10 @@ class Msg:
         self.type: str = msg_type
         self.content: str = msg_content
         self.ack: int = ack_msg
+
+    @staticmethod
+    def build_msg(msg_content: str=None):
+        return Msg(msg_type=MsgType.REGULAR, msg_content=msg_content, ack_msg=-1)
 
     def to_json(self):
         return json.dumps(self.__dict__)
@@ -97,17 +101,20 @@ class Process(ProcessFramework):
             self._waiting_acks[msg_id] = True
             return msg_id
 
-    def send_msg(self, target: int, msg: Msg, retry_time: float = 0.1):
-        msg_id = self._wait_on_msg_id()
-        msg.ack = msg_id
+    def send_msg(self, target: int, msg: Msg, verify=True, retry_time: float = 0.1):
+        msg.src = self.get_id()
         msg_string = msg.to_json()
-        self.send_msg(target, msg_string)
-
-        with self._waiting_acks_lock:
-            while self._waiting_acks[msg_id] and not self.check_done_processing():
-                success = self._waiting_acks_cv.wait(timeout=retry_time)
-                if not success:
-                    self.send_msg(target, msg_string)
+        if verify:
+            msg_id = self._wait_on_msg_id()
+            msg.ack = msg_id
+            super().send_msg(target, msg_string)
+            with self._waiting_acks_lock:
+                while self._waiting_acks[msg_id] and not self.check_done_processing():
+                    success = self._waiting_acks_cv.wait(timeout=retry_time)
+                    if not success:
+                        super().send_msg(target, msg_string)
+        else:
+            super().send_msg(target, msg_string)
 
     def set_done_processing(self):
         with self._done_processing_lock:

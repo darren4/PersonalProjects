@@ -3,7 +3,7 @@ import time
 from abc import ABC, abstractmethod
 from threading import Lock, Thread, Condition
 import random
-from typing import List
+from typing import List, Dict
 
 
 """
