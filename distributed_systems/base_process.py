@@ -3,11 +3,11 @@ from distributed_systems.framework import ProcessFramework, DistributedSystem
 from threading import Lock, Condition, Thread
 from queue import Queue
 import queue
-from enum import StrEnum
+from enum import Enum
 import json
 
 
-class MsgType(StrEnum):
+class MsgType(Enum):
     REGULAR = "regular"
     HEARTBEAT = "heartbeat"
     ACKNOWLEDGE = "acknowledge"
@@ -31,16 +31,17 @@ class Msg:
         return Msg(msg_type=MsgType.REGULAR, msg_content=msg_content, ack_msg=-1)
 
     def to_json(self):
+        self.type = self.type.value
         return json.dumps(self.__dict__)
     
     @staticmethod
     def from_json(json_str: str):
         json_dict = json.loads(json_str)
-        return Msg(json_dict.src, MsgType(json_dict.msg_type), json_dict.msg_content, json_dict.ack_msg)
+        return Msg(json_dict["src"], MsgType(json_dict["type"]), json_dict["content"], json_dict["ack"])
 
 
 class Process(ProcessFramework):
-    def start(self, msg: str=None):
+    def start(self):
         """
         Call in first line of start in inherited class
         """
@@ -63,15 +64,11 @@ class Process(ProcessFramework):
         self.general_inbox.put(Msg.from_json(msg))
 
     def _keep_checking_msgs(self):
-        while True:
+        while self.get_alive_status():
             try:
                 msg: Msg = self.general_inbox.get(timeout=0.1)
             except queue.Empty:
-                if self.check_done_processing():
-                    self.complete()
-                    return
-                else:
-                    continue
+                continue
             if msg.type == MsgType.ACKNOWLEDGE:
                 with self._waiting_acks_lock:
                     self._waiting_acks[msg.ack] = False
@@ -80,7 +77,7 @@ class Process(ProcessFramework):
                 self.focused_inbox.put(msg)
             elif msg.type == MsgType.REGULAR:
                 ack_msg = Msg(self.get_id(), msg_type=MsgType.ACKNOWLEDGE, ack_msg=msg.ack)
-                self.send_msg(msg.src, ack_msg)
+                self.send_msg(msg.src, ack_msg, verify=False)
                 unique_msg_id = f"{msg.src}~{msg.ack}"
                 with self._processed_msgs_lock:
                     if unique_msg_id not in self._processed_msgs:
@@ -103,23 +100,16 @@ class Process(ProcessFramework):
 
     def send_msg(self, target: int, msg: Msg, verify=True, retry_time: float = 0.1):
         msg.src = self.get_id()
-        msg_string = msg.to_json()
         if verify:
             msg_id = self._wait_on_msg_id()
             msg.ack = msg_id
+            msg_string = msg.to_json()
             super().send_msg(target, msg_string)
             with self._waiting_acks_lock:
-                while self._waiting_acks[msg_id] and not self.check_done_processing():
+                while self._waiting_acks[msg_id] and self.get_alive_status():
                     success = self._waiting_acks_cv.wait(timeout=retry_time)
                     if not success:
                         super().send_msg(target, msg_string)
         else:
+            msg_string = msg.to_json()
             super().send_msg(target, msg_string)
-
-    def set_done_processing(self):
-        with self._done_processing_lock:
-            self._done_processing = True
-
-    def check_done_processing(self) -> bool:
-        with self._done_processing_lock:
-            return self._done_processing or not self.get_alive_status()

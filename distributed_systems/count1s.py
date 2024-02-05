@@ -17,6 +17,7 @@ WORKER_COUNT = 2
 
 class Manager(Process):
     def start(self):
+        super().start()
         ProcessFramework.output = 0
         bite_size = 5
         input_len = len(ProcessFramework.input)
@@ -26,13 +27,14 @@ class Manager(Process):
             self.send_msg(msg.src, Msg.build_msg(f"{window_start}~{window_end}"))
         for _ in range(WORKER_COUNT):
             msg = self.get_one_msg()
-            self.send_msg(msg.src, Msg.build_msg(msg_content=DONE))
-        self.send_msg(GUARD_ID, Msg.build_msg(msg_content=DONE))
-        self.set_done_processing()
+            self.send_msg(msg.src, Msg.build_msg(DONE))
+        self.send_msg(GUARD_ID, Msg.build_msg(DONE))
+        self.complete()
 
 
 class Guard(Process):
     def start(self):
+        super().start()
         self.owner = None
         while True:
             msg = self.get_one_msg()
@@ -41,12 +43,12 @@ class Guard(Process):
             else:
                 if not self.owner:
                     self.owner = msg.src
-                    self.send_msg(msg.src, Msg.build_msg(msg_content="TRUE"))
+                    self.send_msg(msg.src, Msg.build_msg("TRUE"))
                 elif self.owner == msg.src:
                     self.owner = None
                 else:
-                    self.send_msg(msg.src, Msg.build_msg(msg_content=f"FALSE"))
-        self.set_done_processing()
+                    self.send_msg(msg.src, Msg.build_msg("FALSE"))
+        self.complete()
 
 
 class Worker(Process):
@@ -68,16 +70,17 @@ class Worker(Process):
         self.send_msg(GUARD_ID, Msg.build_msg())
 
     def start(self):
+        super().start()
         while True:
             self.send_msg(MANAGER_ID, Msg.build_msg())
             msg = self.get_one_msg()
             msg_content: str = msg.content
             if msg.content == DONE:
-                self.set_done_processing()
+                self.complete()
                 break
             elif msg_content.find("~") != -1:
                 range_list = msg_content.split("~")
-                self._process_window((range_list[0], range_list[1]))
+                self._process_window((int(range_list[0]), int(range_list[1])))
             else:
                 print(f"[DEBUG] Unrecognized message: {msg.content}")
                 sys.exit()

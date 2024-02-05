@@ -14,7 +14,7 @@ Simple User Journey
 4. [DISTRIBUTE] Start processes in certain order
 """
 
-MESSAGE_FAULTS_ENABLED = False
+MESSAGE_FAULTS_ENABLED = True
 PROCESS_FAULTS_ENABLED = False
 
 
@@ -49,6 +49,8 @@ class ProcessFramework(ABC):
         self._id: int = id
         self._alive_status: bool = True
         self._alive_status_lock: Lock = Lock()
+        self._processing_status: bool = True
+        self._processing_status_lock: Lock = Lock()
 
     @classmethod
     def set_input(cls, input):
@@ -69,36 +71,47 @@ class ProcessFramework(ABC):
         Thread(target=self.read_msg, args=[msg]).start()
 
     def send_msg(self, target_id: int, msg: str=None):
-        if not isinstance(msg, str):
-            sys.exit()
-        if MESSAGE_FAULTS_ENABLED and random.randint(0, 10) == 0:
-            # Hardware Failure
-            return
         if not self.get_alive_status():
             sys.exit()
+        if msg and not isinstance(msg, str):
+            raise ValueError("Message must be string")
+        if MESSAGE_FAULTS_ENABLED and random.randint(0, 5) == 0:
+            # Hardware Failure
+            return
         DistributedSystem.msg_to_process(target_id, msg)
 
     def new_process(self, process_def: type, process_id: int, msg: str=None):
         process_instance = DistributedSystem.initialize_process(process_def, process_id)
         Thread(target=process_instance.start, args=[msg]).start()
 
+    def get_processing_status(self):
+        with self._processing_status_lock:
+            return self._processing_status
+
     def get_alive_status(self):
         with self._alive_status_lock:
             return self._alive_status
 
-    def complete(self, success: bool=True):
+    def notify_done_processing(self):
+        with self._processing_status_lock:
+            self._processing_status = False
+        DistributedSystem.process_done()
+
+    def complete(self):
         if not self.get_alive_status():
             return
+        self.notify_done_processing()
+        print(f"[STATUS] Process {self.get_id()} done processing")
+
+    def force_kill(self):
         with self._alive_status_lock:
             self._alive_status = False
-        if success:
-            print(f"[STATUS] Process {self.get_id()} completed successfully")
-        else:
-            print(f"[STATUS] Process {self.get_id()} experienced hardware failure")
-        DistributedSystem.end_process(self.get_id())
-
+        print(f"[STATUS] Process {self.get_id()} shut down")
+        self.notify_done_processing()
+        DistributedSystem.remove_process(self.get_id())
 
 class DistributedSystem:
+    _processing_count: int = 0
     _processes: Dict[int, ProcessFramework] = {}
     _processes_lock = Lock()
     _processes_cv = Condition(_processes_lock)
@@ -116,11 +129,10 @@ class DistributedSystem:
 
     @classmethod
     def initialize_process(cls, process_def: type, process_id: int):
-        if not PROCESS_FAULTS_ENABLED:
-            return
         with cls._processes_lock:
             if process_id in cls._processes:
                 raise ValueError(f"Process already holding id {process_id}")
+            cls._processing_count += 1
             process_instance: ProcessFramework = process_def(process_id)
             print(f"[STATUS] Starting process {process_id}")
             cls._processes[process_instance.get_id()] = process_instance
@@ -137,7 +149,7 @@ class DistributedSystem:
             threads.append(Thread(target=process_instance.start))
         for thread in threads:
             thread.start()
-        Thread(target=cls.shut_down_processes).start()
+        # Thread(target=cls.shut_down_processes).start()
 
     @classmethod
     def msg_to_process(cls, target_id: int, msg: str):
@@ -148,20 +160,25 @@ class DistributedSystem:
             pass
 
     @classmethod
-    def end_process(cls, id: int):
+    def process_done(cls):
         with cls._processes_lock:
-            del cls._processes[id]
+            cls._processing_count -= 1
             cls._processes_cv.notify()
 
     @classmethod
-    def some_processes_alive(cls):
+    def remove_process(cls, id: int):
         with cls._processes_lock:
-            return bool(cls._processes)
+            del cls._processes[id]
 
     @classmethod
     def wait_for_completion(cls):
         with cls._processes_lock:
-            while cls._processes:
+            while cls._processing_count:
                 cls._processes_cv.wait()
+            process_ids = list(cls._processes.keys())
+            for process_id in process_ids:
+                process: ProcessFramework = cls._processes[process_id]
+                process._alive_status = False
+                del cls._processes[process_id]
         print("[STATUS] No remaining running processes")
         return ProcessFramework.output
