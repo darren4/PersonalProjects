@@ -95,6 +95,7 @@ if __name__ == "__main__":
         Worker,
         Worker,
     ]
+    DistributedSystem.define_faults(0.0, 0, float("inf"))
     start_time = time.time()
     DistributedSystem.process_input(system_input, processes)
     output = DistributedSystem.wait_for_completion()

@@ -14,9 +14,6 @@ Simple User Journey
 4. [DISTRIBUTE] Start processes in certain order
 """
 
-MESSAGE_FAULTS_ENABLED = True
-PROCESS_FAULTS_ENABLED = False
-
 
 class ProcessFramework(ABC):
     """
@@ -38,7 +35,7 @@ class ProcessFramework(ABC):
         2. Inter-process communication must go through functions read_msg and send_msg
             Reason: Simulated message dropping can be bypassed this way
         3. Do not catch SystemExit exceptions
-            Reason: Simulated hardware failures can be bypassed this way
+            Reason: Simulated server failures can be bypassed this way
     """
 
     input = None
@@ -75,8 +72,7 @@ class ProcessFramework(ABC):
             sys.exit()
         if msg and not isinstance(msg, str):
             raise ValueError("Message must be string")
-        if MESSAGE_FAULTS_ENABLED and random.randint(0, 5) == 0:
-            # Hardware Failure
+        if DistributedSystem.decide_msg_drop():
             return
         DistributedSystem.msg_to_process(target_id, msg)
 
@@ -106,8 +102,8 @@ class ProcessFramework(ABC):
     def force_kill(self):
         with self._alive_status_lock:
             self._alive_status = False
-        print(f"[STATUS] Process {self.get_id()} shut down")
         self.notify_done_processing()
+        print(f"[STATUS] Process {self.get_id()} shut down")
         DistributedSystem.remove_process(self.get_id())
 
 class DistributedSystem:
@@ -116,16 +112,32 @@ class DistributedSystem:
     _processes_lock = Lock()
     _processes_cv = Condition(_processes_lock)
 
+    _msg_drop_prop = 0.1
+    _max_process_kill_count = float("inf")
+    _process_kill_wait_time = 5
+
+    @classmethod
+    def define_faults(cls, msg_drop_prop: float=0.0, max_process_kill_count: float=0.0, process_kill_wait_time: float=5):
+        cls._msg_drop_prop = msg_drop_prop
+        cls._max_process_kill_count = max_process_kill_count
+        cls._process_kill_wait_time = process_kill_wait_time
+
+    @classmethod
+    def decide_msg_drop(cls):
+        return random.uniform(0.0001, 1) <= cls._msg_drop_prop
+
     @classmethod
     def shut_down_processes(cls):
-        # Hardware Failure
-        time.sleep(5)
-        with cls._processes_lock:
-            try:
-                process = random.choice(list(cls._processes.values()))
-            except IndexError:
-                return
-        process.complete(False)
+        process_kill_count = 0
+        while process_kill_count < cls._max_process_kill_count:
+            time.sleep(cls._process_kill_wait_time)
+            with cls._processes_lock:
+                try:
+                    process = random.choice(list(cls._processes.values()))
+                except IndexError:
+                    return
+            process.force_kill()
+            process_kill_count += 1
 
     @classmethod
     def initialize_process(cls, process_def: type, process_id: int):
@@ -149,7 +161,8 @@ class DistributedSystem:
             threads.append(Thread(target=process_instance.start))
         for thread in threads:
             thread.start()
-        # Thread(target=cls.shut_down_processes).start()
+        if cls._max_process_kill_count > 0:
+            Thread(target=cls.shut_down_processes).start()
 
     @classmethod
     def msg_to_process(cls, target_id: int, msg: str):
