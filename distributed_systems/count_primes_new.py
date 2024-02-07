@@ -6,7 +6,11 @@ import math
 from threading import Thread, Lock, Condition
 import sys
 import os
+import json
 
+BITE_SIZE = 30000
+DEFAULT_HEARTBEAT_WAIT = 2
+DEFAULT_MAX_HEARTBEAT_WAIT = 6
 
 def check_prime(num):
     if num <= 1:
@@ -16,39 +20,75 @@ def check_prime(num):
             return False
     return True
 
-
-BITE_SIZE = 30000
-DEFAULT_HEARTBEAT_WAIT = 2
-DEFAULT_MAX_HEARTBEAT_WAIT = 6
-
+def count_primes(process_range):
+    answer = 0
+    for input_value in range(process_range[0], process_range[1]):
+        if check_prime(input_value):
+            answer += 1
+    return answer
 
 class StartupMsg:
-    def __init__(self, parent_worker, process_next):
-        self.parent_worker = parent_worker
+    def __init__(self, parent_counter, process_next):
+        self.parent_counter = parent_counter
         self.process_next = process_next
 
+    def to_json(self) -> str:
+        return json.dumps(self.__dict__)
+    
+    @staticmethod
+    def from_json(json_str: str):
+        json_dict = json.loads(json_str)
+        return StartupMsg(json_dict["parent_counter"], json_dict["process_next"])
 
-class Worker(Process):
-    def start(self, startup_msg: StartupMsg=None):
-        super().start()
-
-        first_worker = not startup_msg
-        parent_worker = startup_msg.parent_worker
-        if startup_msg.process_next >= self.input:
-            last_worker = True
-            maintain_worker = 0
+class FirstCounter(Process):
+    def start(self, startup_msg_str: StartupMsg=None):
+        if self.input < BITE_SIZE:
+            self.output = count_primes((0, self.input))
         else:
-            last_worker = False
-            maintain_worker = self.get_id() + 1
-        process_range = (startup_msg.process_next, min(self.input, startup_msg.process_next + BITE_SIZE))
-        
-        Thread(target=self.send_heartbeats, args=[parent_worker]).start()
+            super().start_background_processing()
 
-        Thread(target=self.keep_worker_alive, args=[maintain_worker]).start()
+            self.send_heartbeats_to_process(math.ceil(self.input / BITE_SIZE) - 1)
+            next_counter_id = self.get_id() + 1
+            count_range_start = 0
+            count_range_end = BITE_SIZE
+            next_counter_startup_msg = StartupMsg(self.get_id(), count_range_end).to_json()
+            if count_range_end + BITE_SIZE > self.input:
+                self.new_process(LastCounter, next_counter_id, next_counter_startup_msg)
+            else:
+                self.new_process(MiddleCounter, next_counter_id, next_counter_startup_msg)
+            
+            self.keep_process_alive(next_counter_id, next_counter_startup_msg)
+            prime_count = count_primes(count_range_start, count_range_end)
+            
+            msg: Msg = self.get_one_msg()
+            if not msg.src == next_counter_id:
+                raise RuntimeError(f"Got message from {msg.src} when it should have been {next_counter_id}")
+            self.output = prime_count + msg.content
+        self.complete()
 
-        primes_in_range = self.count_primes(process_range)
+class MiddleCounter(Process):
+    def start(self, startup_msg_str: StartupMsg=None):
+        super().start_background_processing()
 
-        self.set_done_processing()
+        startup_msg = StartupMsg.from_json(startup_msg_str)     
+        self.send_heartbeats_to_process(startup_msg.parent_counter)
+        next_counter_id = self.get_id() + 1
+        count_range_start = startup_msg.process_next
+        count_range_end = count_range_start + BITE_SIZE
+        next_counter_startup_msg = StartupMsg(self.get_id(), count_range_end).to_json()
+        if count_range_end + BITE_SIZE > self.input:
+            self.new_process(LastCounter, next_counter_id, next_counter_startup_msg)
+        else:
+            self.new_process(MiddleCounter, next_counter_id, next_counter_startup_msg)
+
+        self.keep_process_alive(next_counter_id, next_counter_startup_msg)
+        prime_count = count_primes(count_range_start, count_range_end)
+
+        msg: Msg = self.get_one_msg()
+        if not msg.src == next_counter_id:
+            raise RuntimeError(f"Got message from {msg.src} when it should have been {next_counter_id}")
+        self.send_msg(startup_msg.parent_counter, Msg.build_msg(f"{prime_count + msg.content}"))
+        self.complete()
 
     def count_primes(self, process_range) -> int:
         answer = 0

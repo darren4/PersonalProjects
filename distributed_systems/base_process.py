@@ -41,7 +41,7 @@ class Msg:
 
 
 class Process(ProcessFramework):
-    def start(self):
+    def start_background_processing(self):
         """
         Call in first line of start in inherited class
         """
@@ -69,6 +69,7 @@ class Process(ProcessFramework):
                 msg: Msg = self.general_inbox.get(timeout=0.1)
             except queue.Empty:
                 continue
+
             if msg.type == MsgType.ACKNOWLEDGE:
                 with self._waiting_acks_lock:
                     self._waiting_acks[msg.ack] = False
@@ -84,7 +85,13 @@ class Process(ProcessFramework):
                         self._processed_msgs.add(unique_msg_id)
                         self.focused_inbox.put(msg)
             else:
-                assert False
+                raise ValueError(f"Invalid message type: {msg.type}")
+            
+    def keep_process_alive(self, process_id, startup_msg: str=None):
+        pass
+
+    def send_heartbeats_to_process(self, process_id):
+        pass
 
     def get_one_msg(self, timeout=None):
         try:

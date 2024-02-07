@@ -17,7 +17,7 @@ WORKER_COUNT = 2
 
 class Manager(Process):
     def start(self):
-        super().start()
+        super().start_background_processing()
         ProcessFramework.output = 0
         bite_size = 5
         input_len = len(ProcessFramework.input)
@@ -34,7 +34,7 @@ class Manager(Process):
 
 class Guard(Process):
     def start(self):
-        super().start()
+        super().start_background_processing()
         self.owner = None
         while True:
             msg = self.get_one_msg()
@@ -70,7 +70,7 @@ class Worker(Process):
         self.send_msg(GUARD_ID, Msg.build_msg())
 
     def start(self):
-        super().start()
+        super().start_background_processing()
         while True:
             self.send_msg(MANAGER_ID, Msg.build_msg())
             msg = self.get_one_msg()
@@ -82,8 +82,7 @@ class Worker(Process):
                 range_list = msg_content.split("~")
                 self._process_window((int(range_list[0]), int(range_list[1])))
             else:
-                print(f"[DEBUG] Unrecognized message: {msg.content}")
-                sys.exit()
+                raise ValueError(f"[DEBUG] Unrecognized message: {msg.content}")
 
 
 if __name__ == "__main__":
