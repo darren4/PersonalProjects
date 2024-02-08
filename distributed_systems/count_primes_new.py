@@ -48,9 +48,10 @@ class FirstCounter(Process):
             super().start_background_processing()
 
             self.send_heartbeats_to_process(math.ceil(self.input / BITE_SIZE) - 1)
+
             next_counter_id = self.get_id() + 1
             count_range_start = 0
-            count_range_end = BITE_SIZE
+            count_range_end = count_range_start + BITE_SIZE
             next_counter_startup_msg = StartupMsg(self.get_id(), count_range_end).to_json()
             if count_range_end + BITE_SIZE > self.input:
                 self.new_process(LastCounter, next_counter_id, next_counter_startup_msg)
@@ -58,6 +59,7 @@ class FirstCounter(Process):
                 self.new_process(MiddleCounter, next_counter_id, next_counter_startup_msg)
             
             self.keep_process_alive(next_counter_id, next_counter_startup_msg)
+
             prime_count = count_primes(count_range_start, count_range_end)
             
             msg: Msg = self.get_one_msg()
@@ -72,6 +74,7 @@ class MiddleCounter(Process):
 
         startup_msg = StartupMsg.from_json(startup_msg_str)     
         self.send_heartbeats_to_process(startup_msg.parent_counter)
+
         next_counter_id = self.get_id() + 1
         count_range_start = startup_msg.process_next
         count_range_end = count_range_start + BITE_SIZE
@@ -82,28 +85,32 @@ class MiddleCounter(Process):
             self.new_process(MiddleCounter, next_counter_id, next_counter_startup_msg)
 
         self.keep_process_alive(next_counter_id, next_counter_startup_msg)
+
         prime_count = count_primes(count_range_start, count_range_end)
 
         msg: Msg = self.get_one_msg()
-        if not msg.src == next_counter_id:
+        if msg.src != next_counter_id:
             raise RuntimeError(f"Got message from {msg.src} when it should have been {next_counter_id}")
         self.send_msg(startup_msg.parent_counter, Msg.build_msg(f"{prime_count + msg.content}"))
         self.complete()
 
-    def count_primes(self, process_range) -> int:
-        answer = 0
-        for input_value in range(process_range[0], process_range[1]):
-            if check_prime(input_value):
-                answer += 1
-        return answer
+class LastCounter(Process):
+    def start(self, startup_msg_str: StartupMsg=None):
+        super().start_background_processing()
 
-    def keep_worker_alive(self, target, max_heartbeat_wait=DEFAULT_MAX_HEARTBEAT_WAIT):
-        
+        startup_msg = StartupMsg.from_json(startup_msg_str)     
+        self.send_heartbeats_to_process(startup_msg.parent_counter)
 
-    def send_heartbeats(self, target, wait_time=DEFAULT_HEARTBEAT_WAIT):
-        while not self.check_done_processing():
-            self.send_msg(target, Msg(self.get_id(), msg_type=MsgType.HEART, msg_content=None))
-            time.sleep(wait_time)
+        count_range_start = startup_msg.process_next
+        count_range_end = min(count_range_start + BITE_SIZE, self.input)
+
+        first_counter_startup_msg = StartupMsg(self.get_id(), 0).to_json()
+        self.keep_process_alive(0, first_counter_startup_msg)
+
+        prime_count = count_primes(count_range_start, count_range_end)
+        self.send_msg(startup_msg.parent_counter, Msg.build_msg(f"{prime_count}"))
+        self.complete()
+
 
 if __name__ == "__main__":
     system_input = 128834
