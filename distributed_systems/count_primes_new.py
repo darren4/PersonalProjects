@@ -9,8 +9,6 @@ import os
 import json
 
 BITE_SIZE = 30000
-DEFAULT_HEARTBEAT_WAIT = 2
-DEFAULT_MAX_HEARTBEAT_WAIT = 6
 
 def check_prime(num):
     if num <= 1:
@@ -115,7 +113,7 @@ class LastCounter(Process):
 if __name__ == "__main__":
     system_input = 128834
     print(f"[SETUP] Input length: {system_input}")
-    processes = [Worker]
+    processes = [FirstCounter]
     start_time = time.time()
     DistributedSystem.process_input(system_input, processes)
     output = DistributedSystem.wait_for_completion()

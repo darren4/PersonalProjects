@@ -75,7 +75,7 @@ class ProcessFramework(ABC):
             return
         DistributedSystem.msg_to_process(target_id, msg)
 
-    def new_process(self, process_def: type, process_id: int, msg: str=None):
+    def new_process(self, process_id: int, process_def: type, msg: str=None):
         process_instance = DistributedSystem.initialize_process(process_def, process_id)
         Thread(target=process_instance.start, args=[msg]).start()
 
@@ -90,6 +90,14 @@ class ProcessFramework(ABC):
         DistributedSystem.remove_process(self.get_id())
 
 class DistributedSystem:
+    """
+    Usage:
+        1. Write process implementations (described above)
+        2. Define faults with define_faults call
+        3. Call process_input with list of process definitions (not instances) and input
+        4. Call wait_for_completion to get output
+    """
+
     _processes: Dict[int, ProcessFramework] = {}
     _processes_lock = Lock()
     _processes_cv = Condition(_processes_lock)
@@ -125,7 +133,7 @@ class DistributedSystem:
     def initialize_process(cls, process_def: type, process_id: int):
         with cls._processes_lock:
             if process_id in cls._processes:
-                raise ValueError(f"Initialized process id {process_id} already exists")
+                print(f"[WARNING] Restarting healthy process {process_id}")
             process_instance: ProcessFramework = process_def(process_id)
             print(f"[STATUS] Starting process {process_id}")
             cls._processes[process_instance.get_id()] = process_instance
@@ -157,6 +165,7 @@ class DistributedSystem:
     def remove_process(cls, id: int):
         with cls._processes_lock:
             del cls._processes[id]
+            cls._processes_cv.notify()
 
     @classmethod
     def wait_for_completion(cls):
