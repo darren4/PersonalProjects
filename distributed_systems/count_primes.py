@@ -28,6 +28,7 @@ class StartupMsg:
         self.next_to_process = next_to_process
         self.revival = revival
 
+
 class Worker(Process):
     def initialize(self):
         self.verifier_id = None
@@ -54,7 +55,9 @@ class Worker(Process):
 
     def send_heartbeats(self, target, wait_time=DEFAULT_HEARTBEAT_WAIT):
         while not self.check_done_processing():
-            self.send_msg(target, Msg(self.get_id(), msg_type=MsgType.HEART, msg_content=None))
+            self.send_msg(
+                target, Msg(self.get_id(), msg_type=MsgType.HEART, msg_content=None)
+            )
             time.sleep(wait_time)
 
     def get_next_worker_results(

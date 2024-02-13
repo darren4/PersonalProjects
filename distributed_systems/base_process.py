@@ -7,8 +7,9 @@ from enum import Enum
 import json
 import time
 
-HEARTBEAT_SEND_WAIT_TIME = 2
-HEARTBEAT_CHECK_WAIT_TIME = 6
+HEARTBEAT_SEND_WAIT_TIME = 1
+HEARTBEAT_CHECK_WAIT_TIME = 10
+
 
 class MsgType(Enum):
     REGULAR = "regular"
@@ -19,9 +20,9 @@ class MsgType(Enum):
 class Msg:
     def __init__(
         self,
-        src: int=-1,
-        msg_type: MsgType=MsgType.REGULAR,
-        msg_content: str=None,
+        src: int = -1,
+        msg_type: MsgType = MsgType.REGULAR,
+        msg_content: str = None,
         ack_msg: int = -1,
     ):
         self.src: int = src
@@ -30,17 +31,22 @@ class Msg:
         self.ack: int = ack_msg
 
     @staticmethod
-    def build_msg(msg_content: str=None):
+    def build_msg(msg_content: str = None):
         return Msg(msg_type=MsgType.REGULAR, msg_content=msg_content, ack_msg=-1)
 
     def to_json(self):
         self.type = self.type.value
         return json.dumps(self.__dict__)
-    
+
     @staticmethod
     def from_json(json_str: str):
         json_dict = json.loads(json_str)
-        return Msg(json_dict["src"], MsgType(json_dict["type"]), json_dict["content"], json_dict["ack"])
+        return Msg(
+            json_dict["src"],
+            MsgType(json_dict["type"]),
+            json_dict["content"],
+            json_dict["ack"],
+        )
 
 
 class Process(ProcessFramework):
@@ -58,24 +64,26 @@ class Process(ProcessFramework):
         self._processed_msgs: set[str] = set()
         self._processed_msgs_lock: Lock = Lock()
 
-        self._done_processing: bool = False
-        self._done_processing_lock: Lock = Lock()
+        self._still_processing: bool = True
+        self._still_processing_lock: Lock = Lock()
 
         self._recieved_heartbeats: dict[int, int] = {}
         self._recieved_heartbeats_lock: Lock = Lock()
-        self._recieved_heartbeats_cv: Condition = Condition(self._recieved_heartbeats_lock)
+        self._recieved_heartbeats_cv: Condition = Condition(
+            self._recieved_heartbeats_lock
+        )
 
         Thread(target=self._keep_checking_msgs).start()
 
-    def _get_done_processing_status(self):
-        with self._done_processing_lock:
-            return self._done_processing
+    def _check_still_processing(self):
+        with self._still_processing_lock:
+            return self._still_processing
 
     def read_msg(self, msg: str):
         self.general_inbox.put(Msg.from_json(msg))
 
     def _keep_checking_msgs(self):
-        while self.get_alive_status():
+        while self._check_still_processing():
             try:
                 msg: Msg = self.general_inbox.get(timeout=0.1)
             except queue.Empty:
@@ -90,7 +98,9 @@ class Process(ProcessFramework):
                         self._recieved_heartbeats[msg.src] += 1
                         self._recieved_heartbeats_cv.notify_all()
             elif msg.type == MsgType.REGULAR:
-                ack_msg = Msg(self.get_id(), msg_type=MsgType.ACKNOWLEDGE, ack_msg=msg.ack)
+                ack_msg = Msg(
+                    self.get_id(), msg_type=MsgType.ACKNOWLEDGE, ack_msg=msg.ack
+                )
                 self.send_msg(msg.src, ack_msg, verify=False)
                 unique_msg_id = f"{msg.src}~{msg.ack}"
                 with self._processed_msgs_lock:
@@ -99,30 +109,44 @@ class Process(ProcessFramework):
                         self.focused_inbox.put(msg)
             else:
                 raise ValueError(f"Invalid message type: {msg.type}")
-    
-    def _keep_process_alive_continuously(self, process_id, process_def, startup_msg: str=None):
+
+    def _keep_process_alive_continuously(
+        self, process_id: int, process_def: type, startup_msg: str = None
+    ):
         last_heartbeat_count: int = 0
         with self._recieved_heartbeats_lock:
             self._recieved_heartbeats[process_id] = last_heartbeat_count
-        while not self._get_done_processing_status():
+        while self._check_still_processing():
             with self._recieved_heartbeats_lock:
-                recieved_heartbeat = False
                 while self._recieved_heartbeats[process_id] == last_heartbeat_count:
-                    recieved_heartbeat = self._recieved_heartbeats_cv.wait(HEARTBEAT_CHECK_WAIT_TIME)
+                    recieved_heartbeat: bool = self._recieved_heartbeats_cv.wait(
+                        HEARTBEAT_CHECK_WAIT_TIME
+                    )
+                    if not self._check_still_processing():
+                        return
+                    if not recieved_heartbeat:
+                        self.new_process(process_id, process_def, startup_msg)
                 last_heartbeat_count = self._recieved_heartbeats[process_id]
-                if not recieved_heartbeat:
-                    self.new_process(process_id, process_def, startup_msg)
 
-    def keep_process_alive(self, process_id, process_def, startup_msg: str=None):
-        Thread(self._keep_process_alive_continuously, args=[process_id, process_def, startup_msg]).start()
+    def keep_process_alive(
+        self, process_id: int, process_def: type, startup_msg: str = None
+    ):
+        Thread(
+            target=self._keep_process_alive_continuously,
+            args=[process_id, process_def, startup_msg],
+        ).start()
 
-    def _send_heartbeats_to_process_continuously(self, process_id):
-        while not self._get_done_processing_status():
-            self.send_msg(target=process_id, msg=Msg(MsgType.HEARTBEAT), verify=False)
+    def _send_heartbeats_to_process_continuously(self, process_id: int):
+        while self._check_still_processing():
+            self.send_msg(
+                target=process_id, msg=Msg(msg_type=MsgType.HEARTBEAT), verify=False
+            )
             time.sleep(HEARTBEAT_SEND_WAIT_TIME)
 
-    def send_heartbeats_to_process(self, process_id):
-        Thread(self._send_heartbeats_to_process_continuously, args=[process_id])
+    def send_heartbeats_to_process(self, process_id: int):
+        Thread(
+            target=self._send_heartbeats_to_process_continuously, args=[process_id]
+        ).start()
 
     def get_one_msg(self, timeout=None):
         try:
@@ -144,10 +168,15 @@ class Process(ProcessFramework):
             msg_string = msg.to_json()
             super().send_msg(target, msg_string)
             with self._waiting_acks_lock:
-                while self._waiting_acks[msg_id] and self.get_alive_status():
+                while self._waiting_acks[msg_id] and self._check_still_processing():
                     success = self._waiting_acks_cv.wait(timeout=retry_time)
                     if not success:
                         super().send_msg(target, msg_string)
         else:
             msg_string = msg.to_json()
             super().send_msg(target, msg_string)
+
+    def complete(self):
+        with self._still_processing_lock:
+            self._still_processing = False
+        super().shutdown()

@@ -28,7 +28,7 @@ class ProcessFramework(ABC):
             - start -> start process execution
 
         Other:
-            - complete -> call when process done
+            - shutdown -> call when process done
 
     Rules:
         1. Do not apply thread controls (like threading.Lock) to static variables
@@ -56,7 +56,7 @@ class ProcessFramework(ABC):
         return self._id
 
     @abstractmethod
-    def start(self, msg: str=None):
+    def start(self, msg: str = None):
         raise NotImplementedError()
 
     @abstractmethod
@@ -66,7 +66,7 @@ class ProcessFramework(ABC):
     def receive_msg(self, msg: str):
         Thread(target=self.read_msg, args=[msg]).start()
 
-    def send_msg(self, target_id: int, msg: str=None):
+    def send_msg(self, target_id: int, msg: str = None):
         if not self.get_alive_status():
             sys.exit()
         if msg and not isinstance(msg, str):
@@ -75,19 +75,23 @@ class ProcessFramework(ABC):
             return
         DistributedSystem.msg_to_process(target_id, msg)
 
-    def new_process(self, process_id: int, process_def: type, msg: str=None):
-        process_instance = DistributedSystem.initialize_process(process_def, process_id)
+    def new_process(self, process_id: int, process_def: type, msg: str = None):
+        process_instance = DistributedSystem.initialize_process(process_id, process_def)
         Thread(target=process_instance.start, args=[msg]).start()
 
     def get_alive_status(self):
         with self._alive_status_lock:
             return self._alive_status
 
-    def complete(self):
+    def shutdown(self, premature=False):
         with self._alive_status_lock:
             self._alive_status = False
-        print(f"[STATUS] Process {self.get_id()} shut down")
+        if premature:
+            print(f"[STATUS] Process {self.get_id()} experienced hardware failure")
+        else:
+            print(f"[STATUS] Process {self.get_id()} complete")
         DistributedSystem.remove_process(self.get_id())
+
 
 class DistributedSystem:
     """
@@ -107,7 +111,12 @@ class DistributedSystem:
     _process_kill_wait_time = 5
 
     @classmethod
-    def define_faults(cls, msg_drop_prop: float=0.0, max_process_kill_count: float=0.0, process_kill_wait_time: float=5):
+    def define_faults(
+        cls,
+        msg_drop_prop: float = 0.0,
+        max_process_kill_count: float = 0.0,
+        process_kill_wait_time: float = 5,
+    ):
         cls._msg_drop_prop = msg_drop_prop
         cls._max_process_kill_count = max_process_kill_count
         cls._process_kill_wait_time = process_kill_wait_time
@@ -126,11 +135,11 @@ class DistributedSystem:
                     process = random.choice(list(cls._processes.values()))
                 except IndexError:
                     return
-            process.complete()
+            process.shutdown(premature=True)
             process_kill_count += 1
 
     @classmethod
-    def initialize_process(cls, process_def: type, process_id: int):
+    def initialize_process(cls, process_id: int, process_def: type):
         with cls._processes_lock:
             if process_id in cls._processes:
                 print(f"[WARNING] Restarting healthy process {process_id}")
@@ -145,7 +154,7 @@ class DistributedSystem:
         threads: list[Thread] = []
         for process_id in range(len(process_defs)):
             process_instance = cls.initialize_process(
-                process_defs[process_id], process_id
+                process_id, process_defs[process_id]
             )
             threads.append(Thread(target=process_instance.start))
         for thread in threads:
