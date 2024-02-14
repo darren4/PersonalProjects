@@ -6,6 +6,7 @@ import queue
 from enum import Enum
 import json
 import time
+import math
 
 HEARTBEAT_SEND_WAIT_TIME = 1
 HEARTBEAT_CHECK_WAIT_TIME = 10
@@ -95,7 +96,10 @@ class Process(ProcessFramework):
             elif msg.type == MsgType.HEARTBEAT:
                 with self._recieved_heartbeats_lock:
                     if msg.src in self._recieved_heartbeats:
-                        self._recieved_heartbeats[msg.src] += 1
+                        if msg.content and msg.content == "FINAL":
+                            self._recieved_heartbeats[msg.src] = float("inf")
+                        else:
+                            self._recieved_heartbeats[msg.src] += 1
                         self._recieved_heartbeats_cv.notify_all()
             elif msg.type == MsgType.REGULAR:
                 ack_msg = Msg(
@@ -122,9 +126,12 @@ class Process(ProcessFramework):
                     recieved_heartbeat: bool = self._recieved_heartbeats_cv.wait(
                         HEARTBEAT_CHECK_WAIT_TIME
                     )
-                    if not self._check_still_processing():
+                    if (
+                        math.isinf(self._recieved_heartbeats[process_id])
+                        or not self._check_still_processing()
+                    ):
                         return
-                    if not recieved_heartbeat:
+                    elif not recieved_heartbeat:
                         self.new_process(process_id, process_def, startup_msg)
                 last_heartbeat_count = self._recieved_heartbeats[process_id]
 
@@ -142,6 +149,9 @@ class Process(ProcessFramework):
                 target=process_id, msg=Msg(msg_type=MsgType.HEARTBEAT), verify=False
             )
             time.sleep(HEARTBEAT_SEND_WAIT_TIME)
+        self.send_msg(
+            target=process_id, msg=Msg(msg_type=MsgType.HEARTBEAT, msg_content="FINAL")
+        )
 
     def send_heartbeats_to_process(self, process_id: int):
         Thread(

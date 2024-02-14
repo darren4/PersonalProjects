@@ -6,6 +6,9 @@ import math
 from threading import Thread, Lock, Condition
 import sys
 import os
+import json
+
+BITE_SIZE = 30000
 
 
 def check_prime(num):
@@ -17,127 +20,129 @@ def check_prime(num):
     return True
 
 
-BITE_SIZE = 30000
-DEFAULT_HEARTBEAT_WAIT = 2
-DEFAULT_MAX_HEARTBEAT_WAIT = 6
+def count_primes(range_start, range_end):
+    answer = 0
+    for input_value in range(range_start, range_end):
+        if check_prime(input_value):
+            answer += 1
+    return answer
 
 
 class StartupMsg:
-    def __init__(self, creator_id, next_to_process, revival=False):
-        self.creator_id = creator_id
-        self.next_to_process = next_to_process
-        self.revival = revival
+    def __init__(self, parent_counter, process_next):
+        self.parent_counter = parent_counter
+        self.process_next = process_next
+
+    def to_json(self) -> str:
+        return json.dumps(self.__dict__)
+
+    @staticmethod
+    def from_json(json_str: str):
+        json_dict = json.loads(json_str)
+        return StartupMsg(json_dict["parent_counter"], json_dict["process_next"])
 
 
-class Worker(Process):
-    def initialize(self):
-        self.verifier_id = None
-        self.process_range = (None, None)
-        self.first_worker = False
-        self.last_worker = False
-        self.wait_for = None
-
-        self.next_worker_answer = None
-        self.next_worker_answer_lock = Lock()
-        self.next_worker_answer_cv = Condition(self.next_worker_answer_lock)
-
-    def set_range(self, next_to_process=None):
-        if not next_to_process:
-            start = 0
-            end = BITE_SIZE
+class FirstCounter(Process):
+    def start(self, startup_msg_str: str = None):
+        if self.input < BITE_SIZE:
+            self.output = count_primes(0, self.input)
         else:
-            start = next_to_process
-            end = next_to_process + BITE_SIZE
-        if end >= self.input:
-            end = self.input
-            self.last_worker = True
-        self.process_range = (start, end)
+            super().start_background_processing()
 
-    def send_heartbeats(self, target, wait_time=DEFAULT_HEARTBEAT_WAIT):
-        while not self.check_done_processing():
-            self.send_msg(
-                target, Msg(self.get_id(), msg_type=MsgType.HEART, msg_content=None)
+            self.send_heartbeats_to_process(math.ceil(self.input / BITE_SIZE) - 1)
+
+            next_counter_id = self.get_id() + 1
+            count_range_start = 0
+            count_range_end = count_range_start + BITE_SIZE
+            next_counter_startup_msg = StartupMsg(
+                self.get_id(), count_range_end
+            ).to_json()
+            if count_range_end + BITE_SIZE > self.input:
+                self.new_process(next_counter_id, LastCounter, next_counter_startup_msg)
+                self.keep_process_alive(
+                    next_counter_id, LastCounter, next_counter_startup_msg
+                )
+            else:
+                self.new_process(
+                    next_counter_id, MiddleCounter, next_counter_startup_msg
+                )
+                self.keep_process_alive(
+                    next_counter_id, MiddleCounter, next_counter_startup_msg
+                )
+
+            prime_count = count_primes(count_range_start, count_range_end)
+
+            msg: Msg = self.get_one_msg()
+            if not msg.src == next_counter_id:
+                raise RuntimeError(
+                    f"Got message from {msg.src} when it should have been {next_counter_id}"
+                )
+            ProcessFramework.output = prime_count + int(msg.content)
+        self.complete()
+
+
+class MiddleCounter(Process):
+    def start(self, startup_msg_str: str = None):
+        super().start_background_processing()
+
+        startup_msg = StartupMsg.from_json(startup_msg_str)
+        self.send_heartbeats_to_process(startup_msg.parent_counter)
+
+        next_counter_id = self.get_id() + 1
+        count_range_start = startup_msg.process_next
+        count_range_end = count_range_start + BITE_SIZE
+        next_counter_startup_msg = StartupMsg(self.get_id(), count_range_end).to_json()
+        if count_range_end + BITE_SIZE > self.input:
+            self.new_process(next_counter_id, LastCounter, next_counter_startup_msg)
+            self.keep_process_alive(
+                next_counter_id, LastCounter, next_counter_startup_msg
             )
-            time.sleep(wait_time)
-
-    def get_next_worker_results(
-        self, worker_id, max_heartbeat_wait=DEFAULT_MAX_HEARTBEAT_WAIT
-    ):
-        while not self.check_done_processing():
-            msg: Msg = self.get_one_msg(max_heartbeat_wait)
-            if not msg:
-                if worker_id == 0:
-                    next_to_process = 0
-                else:
-                    next_to_process = self.process_range[1]
-                if not self.check_done_processing():
-                    print(f"[RECOVER] Reviving worker {worker_id}")
-                    try:
-                        self.new_process(
-                            Worker,
-                            worker_id,
-                            StartupMsg(self.get_id(), next_to_process, True),
-                        )
-                    except ValueError:
-                        print(f"[ERROR] Revived alive worker {worker_id}")
-                        sys.exit()
-            elif msg.content is not None and not self.last_worker:
-                with self.next_worker_answer_lock:
-                    self.next_worker_answer = msg.content
-                    self.next_worker_answer_cv.notify()
-                break
-
-    def start(self, startup_msg: StartupMsg = None):
-        super().start(startup_msg)
-        self.initialize()
-
-        if not startup_msg:
-            self.first_worker = True
-            self.verifier_id = math.ceil(self.input / BITE_SIZE) - 1
-            self.set_range()
         else:
-            self.verifier_id = startup_msg.creator_id
-            self.set_range(startup_msg.next_to_process)
+            self.new_process(next_counter_id, MiddleCounter, next_counter_startup_msg)
+            self.keep_process_alive(
+                next_counter_id, MiddleCounter, next_counter_startup_msg
+            )
 
-        Thread(target=self.send_heartbeats, args=[self.verifier_id]).start()
+        prime_count = count_primes(count_range_start, count_range_end)
 
-        if not self.last_worker:
-            self.wait_for = self.get_id() + 1
-            if not startup_msg or not startup_msg.revival:
-                startup_msg = StartupMsg(self.get_id(), self.process_range[1])
-                self.new_process(Worker, self.wait_for, startup_msg)
-        else:
-            self.wait_for = 0
-        get_next_t: Thread = Thread(
-            target=self.get_next_worker_results, args=[self.wait_for]
+        msg: Msg = self.get_one_msg()
+        if msg.src != next_counter_id:
+            raise RuntimeError(
+                f"Got message from {msg.src} when it should have been {next_counter_id}"
+            )
+        self.send_msg(
+            startup_msg.parent_counter,
+            Msg.build_msg(f"{prime_count + int(msg.content)}"),
         )
-        get_next_t.start()
+        self.complete()
 
-        answer = 0
-        for input_value in range(self.process_range[0], self.process_range[1]):
-            if check_prime(input_value):
-                answer += 1
 
-        if not self.last_worker:
-            with self.next_worker_answer_lock:
-                while not self.next_worker_answer:
-                    self.next_worker_answer_cv.wait()
-                answer += self.next_worker_answer
+class LastCounter(Process):
+    def start(self, startup_msg_str: str = None):
+        super().start_background_processing()
 
-        if not self.first_worker:
-            self.send_msg_verify(
-                self.verifier_id, Msg(self.get_id(), msg_content=answer)
-            )
-        else:
-            ProcessFramework.output = answer
-        self.set_done_processing()
+        startup_msg = StartupMsg.from_json(startup_msg_str)
+        self.send_heartbeats_to_process(startup_msg.parent_counter)
+
+        count_range_start = startup_msg.process_next
+        count_range_end = min(count_range_start + BITE_SIZE, self.input)
+
+        first_counter_startup_msg = StartupMsg(self.get_id(), 0).to_json()
+        self.keep_process_alive(0, FirstCounter, first_counter_startup_msg)
+
+        prime_count = count_primes(count_range_start, count_range_end)
+        self.send_msg(startup_msg.parent_counter, Msg.build_msg(f"{prime_count}"))
+        self.complete()
 
 
 if __name__ == "__main__":
     system_input = 128834
     print(f"[SETUP] Input length: {system_input}")
-    processes = [Worker]
+    processes = [FirstCounter]
     start_time = time.time()
+    DistributedSystem.define_faults(
+        msg_drop_prop=0, max_process_kill_count=0, process_kill_wait_time=5
+    )
     DistributedSystem.process_input(system_input, processes)
     output = DistributedSystem.wait_for_completion()
     print(f"[RESULT] Runtime: {time.time() - start_time}")
@@ -145,8 +150,10 @@ if __name__ == "__main__":
     correct_count = 12059
     print(f"[RESULT] Correct: {correct_count}")
     print(f"[RESULT] Actual: {output}")
+    if output == correct_count:
+        write_msg = "SUCCESS"
+    else:
+        write_msg = "FAIL"
+    print(f"[FINAL RESULT] {write_msg}")
     with open(f"{os.environ['PYTHONPATH']}/distributed_systems/output.txt", "w") as fh:
-        if output == correct_count:
-            fh.write("SUCCESS")
-        else:
-            fh.write("FAILURE")
+        fh.write(write_msg)
