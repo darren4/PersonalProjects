@@ -1,6 +1,6 @@
 from distributed_systems.framework import ProcessFramework, DistributedSystem
 
-from threading import Lock, Condition, Thread
+from threading import Lock, Condition, Thread, Event
 from queue import Queue
 import queue
 from enum import Enum
@@ -68,11 +68,8 @@ class Process(ProcessFramework):
         self._still_processing: bool = True
         self._still_processing_lock: Lock = Lock()
 
-        self._recieved_heartbeats: dict[int, int] = {}
-        self._recieved_heartbeats_lock: Lock = Lock()
-        self._recieved_heartbeats_cv: Condition = Condition(
-            self._recieved_heartbeats_lock
-        )
+        self._heartbeat_events: dict[int, tuple[Event, bool]] = {}
+        self._heartbeat_events_lock: Lock = Lock()
 
         Thread(target=self._keep_checking_msgs).start()
 
@@ -104,17 +101,11 @@ class Process(ProcessFramework):
                     self._waiting_acks[msg.ack] = False
                     self._waiting_acks_cv.notify_all()
             elif msg.type == MsgType.HEARTBEAT:
-                self._acknowledge_msg(msg)
-                with self._recieved_heartbeats_lock:
-                    if msg.src in self._recieved_heartbeats:
+                with self._heartbeat_events_lock:
+                    if msg.src in self._heartbeat_events:
+                        self._heartbeat_events[msg.src][0].set()
                         if msg.content and msg.content == "FINAL":
-                            print(
-                                f"[DEBUG] process {self.get_id()} got final heartbeat"
-                            )
-                            self._recieved_heartbeats[msg.src] = float("inf")
-                        else:
-                            self._recieved_heartbeats[msg.src] += 1
-                        self._recieved_heartbeats_cv.notify_all()
+                            self._heartbeat_events[msg.src][1] = True
             elif msg.type == MsgType.REGULAR:
                 self._acknowledge_msg(msg)
                 self.focused_inbox.put(msg)
@@ -125,21 +116,24 @@ class Process(ProcessFramework):
         self, process_id: int, process_def: type, startup_msg: str = None
     ):
         last_heartbeat_count: int = 0
-        with self._recieved_heartbeats_lock:
-            self._recieved_heartbeats[process_id] = last_heartbeat_count
-        while self._check_still_processing():
-            with self._recieved_heartbeats_lock:
-                while self._recieved_heartbeats[process_id] == last_heartbeat_count:
-                    recieved_heartbeat: bool = self._recieved_heartbeats_cv.wait(
-                        HEARTBEAT_CHECK_WAIT_TIME
-                    )
-                    if (
-                        math.isinf(self._recieved_heartbeats[process_id])
-                    ):
-                        return
-                    elif not recieved_heartbeat:
-                        self.new_process(process_id, process_def, startup_msg)
-                last_heartbeat_count = self._recieved_heartbeats[process_id]
+        with self._heartbeat_events_lock:
+            self._heartbeat_events_lock[process_id] = last_heartbeat_count
+        while True:
+            with self._heartbeat_events_lock:
+                try:
+                    while self._heartbeat_events_lock[process_id] == last_heartbeat_count:
+                        recieved_heartbeat: bool = self._recieved_heartbeats_cv.wait(
+                            HEARTBEAT_CHECK_WAIT_TIME
+                        )
+                        if (
+                            math.isinf(self._heartbeat_events_lock[process_id])
+                        ):
+                            return
+                        elif not recieved_heartbeat:
+                            self.new_process(process_id, process_def, startup_msg)
+                    last_heartbeat_count = self._heartbeat_events_lock[process_id]
+                except KeyError:
+                    return
 
     def keep_process_alive(
         self, process_id: int, process_def: type, startup_msg: str = None
