@@ -83,6 +83,16 @@ class Process(ProcessFramework):
     def read_msg(self, msg: str):
         self.general_inbox.put(Msg.from_json(msg))
 
+    def _acknowledge_msg(self, msg: Msg):
+        ack_msg = Msg(
+            self.get_id(), msg_type=MsgType.ACKNOWLEDGE, ack_msg=msg.ack
+        )
+        self.send_msg(msg.src, ack_msg, verify=False)
+        unique_msg_id = f"{msg.src}~{msg.ack}"
+        with self._processed_msgs_lock:
+            if unique_msg_id not in self._processed_msgs:
+                self._processed_msgs.add(unique_msg_id)
+
     def _keep_checking_msgs(self):
         while self._check_still_processing():
             try:
@@ -94,23 +104,20 @@ class Process(ProcessFramework):
                     self._waiting_acks[msg.ack] = False
                     self._waiting_acks_cv.notify_all()
             elif msg.type == MsgType.HEARTBEAT:
+                self._acknowledge_msg(msg)
                 with self._recieved_heartbeats_lock:
                     if msg.src in self._recieved_heartbeats:
                         if msg.content and msg.content == "FINAL":
+                            print(
+                                f"[DEBUG] process {self.get_id()} got final heartbeat"
+                            )
                             self._recieved_heartbeats[msg.src] = float("inf")
                         else:
                             self._recieved_heartbeats[msg.src] += 1
                         self._recieved_heartbeats_cv.notify_all()
             elif msg.type == MsgType.REGULAR:
-                ack_msg = Msg(
-                    self.get_id(), msg_type=MsgType.ACKNOWLEDGE, ack_msg=msg.ack
-                )
-                self.send_msg(msg.src, ack_msg, verify=False)
-                unique_msg_id = f"{msg.src}~{msg.ack}"
-                with self._processed_msgs_lock:
-                    if unique_msg_id not in self._processed_msgs:
-                        self._processed_msgs.add(unique_msg_id)
-                        self.focused_inbox.put(msg)
+                self._acknowledge_msg(msg)
+                self.focused_inbox.put(msg)
             else:
                 raise ValueError(f"Invalid message type: {msg.type}")
 
@@ -128,7 +135,6 @@ class Process(ProcessFramework):
                     )
                     if (
                         math.isinf(self._recieved_heartbeats[process_id])
-                        or not self._check_still_processing()
                     ):
                         return
                     elif not recieved_heartbeat:
@@ -178,7 +184,7 @@ class Process(ProcessFramework):
             msg_string = msg.to_json()
             super().send_msg(target, msg_string)
             with self._waiting_acks_lock:
-                while self._waiting_acks[msg_id] and self._check_still_processing():
+                while self._waiting_acks[msg_id]:
                     success = self._waiting_acks_cv.wait(timeout=retry_time)
                     if not success:
                         super().send_msg(target, msg_string)

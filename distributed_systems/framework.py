@@ -72,6 +72,7 @@ class ProcessFramework(ABC):
         if msg and not isinstance(msg, str):
             raise ValueError("Message must be string")
         if DistributedSystem.decide_msg_drop():
+            print(f"[STATUS] Dropping message")
             return
         DistributedSystem.msg_to_process(target_id, msg)
 

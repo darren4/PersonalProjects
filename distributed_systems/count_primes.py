@@ -141,7 +141,7 @@ if __name__ == "__main__":
     processes = [FirstCounter]
     start_time = time.time()
     DistributedSystem.define_faults(
-        msg_drop_prop=0, max_process_kill_count=0, process_kill_wait_time=5
+        msg_drop_prop=0.0, max_process_kill_count=0, process_kill_wait_time=5
     )
     DistributedSystem.process_input(system_input, processes)
     output = DistributedSystem.wait_for_completion()
