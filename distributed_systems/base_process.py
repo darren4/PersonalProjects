@@ -75,12 +75,16 @@ class Process(ProcessFramework):
         self._next_msg_id_lock: Lock = Lock()
         self._ack_events: dict[int, EventMsg] = {}
         self._ack_events_lock: Lock = Lock()
+        self._ack_events_cv: Condition = Condition(self._ack_events_lock)
 
         self._processed_msgs: set[str] = set()
         self._processed_msgs_lock: Lock = Lock()
 
         self._still_processing: bool = True
         self._still_processing_lock: Lock = Lock()
+
+        self._shutdown_complete: bool = False
+        self._shutdown_complete_lock: Lock = Lock()
 
         self._heartbeat_events: dict[int, EventMsg] = {}
         self._heartbeat_events_lock: Lock = Lock()
@@ -90,6 +94,10 @@ class Process(ProcessFramework):
     def _check_still_processing(self):
         with self._still_processing_lock:
             return self._still_processing
+        
+    def _check_shutdown_complete(self):
+        with self._shutdown_complete_lock:
+            return self._shutdown_complete
 
     def read_msg(self, msg: str):
         self.general_inbox.put(Msg.from_json(msg))
@@ -103,7 +111,7 @@ class Process(ProcessFramework):
                 self._processed_msgs.add(unique_msg_id)
 
     def _keep_checking_msgs(self):
-        while self._check_still_processing():
+        while not self._check_shutdown_complete():
             try:
                 msg: Msg = self.general_inbox.get(timeout=0.1)
             except queue.Empty:
@@ -153,7 +161,7 @@ class Process(ProcessFramework):
             args=[process_id, process_def, startup_msg],
         ).start()
 
-    def _send_heartbeats_to_process_continuously(
+    def _send_heartbeats_continuously(
         self, process_id: int, wait_time: float = 1
     ):
         while self._check_still_processing():
@@ -161,14 +169,14 @@ class Process(ProcessFramework):
                 target=process_id, msg=Msg(msg_type=MsgType.HEARTBEAT), verify=False
             )
             time.sleep(wait_time)
-        print(f"Process {self.get_id()} sending final heartbeat to {process_id}")
+        print(f"[DEBUG] Process {self.get_id()} sending final heartbeat to {process_id}")
         self.send_msg(
             target=process_id, msg=Msg(msg_type=MsgType.HEARTBEAT, msg_content="FINAL")
         )
 
     def send_heartbeats_to_process(self, process_id: int):
         Thread(
-            target=self._send_heartbeats_to_process_continuously, args=[process_id]
+            target=self._send_heartbeats_continuously, args=[process_id]
         ).start()
 
     def get_one_msg(self, timeout=None):
@@ -195,11 +203,12 @@ class Process(ProcessFramework):
             with self._ack_events_lock:
                 process_event = EventMsg()
                 self._ack_events[msg_id] = process_event
-            while self._check_still_processing():
+            while not self._check_shutdown_complete():
                 try:
                     process_event.wait(timeout=retry_time)
                     with self._ack_events_lock:
                         del self._ack_events[msg_id]
+                        self._ack_events_cv.notify()
                     break
                 except TimeoutError:
                     super().send_msg(target, msg_string)
@@ -210,5 +219,9 @@ class Process(ProcessFramework):
     def complete(self):
         with self._still_processing_lock:
             self._still_processing = False
-        
+        with self._ack_events_lock:
+            while len(self._ack_events) > 0:
+                self._ack_events_cv.wait()
+        with self._shutdown_complete_lock:
+            self._shutdown_complete = True
         super().shutdown()
