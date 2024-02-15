@@ -3,8 +3,6 @@ from distributed_systems.base_process import Msg, Process, MsgType
 
 import time
 import math
-from threading import Thread, Lock, Condition
-import sys
 import os
 import json
 
@@ -29,9 +27,10 @@ def count_primes(range_start, range_end):
 
 
 class StartupMsg:
-    def __init__(self, parent_counter, process_next):
-        self.parent_counter = parent_counter
-        self.process_next = process_next
+    def __init__(self, parent_counter: int, process_next: int, revival: str = "FALSE"):
+        self.parent_counter: int = parent_counter
+        self.process_next: int = process_next
+        self.revival: str = revival
 
     def to_json(self) -> str:
         return json.dumps(self.__dict__)
@@ -39,7 +38,9 @@ class StartupMsg:
     @staticmethod
     def from_json(json_str: str):
         json_dict = json.loads(json_str)
-        return StartupMsg(json_dict["parent_counter"], json_dict["process_next"])
+        return StartupMsg(
+            json_dict["parent_counter"], json_dict["process_next"], json_dict["revival"]
+        )
 
 
 class FirstCounter(Process):
