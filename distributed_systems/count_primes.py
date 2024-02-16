@@ -45,6 +45,10 @@ class StartupMsg:
 
 class FirstCounter(Process):
     def start(self, startup_msg_str: str = None):
+        if startup_msg_str:
+            startup_msg: StartupMsg = StartupMsg.from_json(startup_msg_str)
+        else:
+            startup_msg = StartupMsg(0, 0, "FALSE")
         if self.input < BITE_SIZE:
             self.output = count_primes(0, self.input)
         else:
@@ -59,14 +63,24 @@ class FirstCounter(Process):
                 self.get_id(), count_range_end
             ).to_json()
             if count_range_end + BITE_SIZE > self.input:
-                self.new_process(next_counter_id, LastCounter, next_counter_startup_msg)
+                if startup_msg.revival == "FALSE":
+                    self.new_process(
+                        next_counter_id, LastCounter, next_counter_startup_msg
+                    )
+                next_counter_startup_msg = StartupMsg(
+                    self.get_id(), count_range_end, "TRUE"
+                ).to_json()
                 self.keep_process_alive(
                     next_counter_id, LastCounter, next_counter_startup_msg
                 )
             else:
-                self.new_process(
-                    next_counter_id, MiddleCounter, next_counter_startup_msg
-                )
+                if startup_msg.revival == "FALSE":
+                    self.new_process(
+                        next_counter_id, MiddleCounter, next_counter_startup_msg
+                    )
+                next_counter_startup_msg = StartupMsg(
+                    self.get_id(), count_range_end, "TRUE"
+                ).to_json()
                 self.keep_process_alive(
                     next_counter_id, MiddleCounter, next_counter_startup_msg
                 )
@@ -79,6 +93,7 @@ class FirstCounter(Process):
                     f"Got message from {msg.src} when it should have been {next_counter_id}"
                 )
             ProcessFramework.output = prime_count + int(msg.content)
+            self.send_msg(next_counter_id, Msg.build_msg("DONE"))
         self.complete()
 
 
@@ -94,12 +109,22 @@ class MiddleCounter(Process):
         count_range_end = count_range_start + BITE_SIZE
         next_counter_startup_msg = StartupMsg(self.get_id(), count_range_end).to_json()
         if count_range_end + BITE_SIZE > self.input:
-            self.new_process(next_counter_id, LastCounter, next_counter_startup_msg)
+            if startup_msg.revival == "FALSE":
+                self.new_process(next_counter_id, LastCounter, next_counter_startup_msg)
+            next_counter_startup_msg = StartupMsg(
+                self.get_id(), count_range_end, "TRUE"
+            ).to_json()
             self.keep_process_alive(
                 next_counter_id, LastCounter, next_counter_startup_msg
             )
         else:
-            self.new_process(next_counter_id, MiddleCounter, next_counter_startup_msg)
+            if startup_msg.revival == "FALSE":
+                self.new_process(
+                    next_counter_id, MiddleCounter, next_counter_startup_msg
+                )
+            next_counter_startup_msg = StartupMsg(
+                self.get_id(), count_range_end, "TRUE"
+            ).to_json()
             self.keep_process_alive(
                 next_counter_id, MiddleCounter, next_counter_startup_msg
             )
@@ -115,6 +140,10 @@ class MiddleCounter(Process):
             startup_msg.parent_counter,
             Msg.build_msg(f"{prime_count + int(msg.content)}"),
         )
+        msg: Msg = self.get_one_msg()
+        if msg.src != startup_msg.parent_counter:
+            raise RuntimeError("Expected message from parent")
+        self.send_msg(next_counter_id, Msg.build_msg("DONE"))
         self.complete()
 
 
@@ -133,6 +162,9 @@ class LastCounter(Process):
 
         prime_count = count_primes(count_range_start, count_range_end)
         self.send_msg(startup_msg.parent_counter, Msg.build_msg(f"{prime_count}"))
+        msg: Msg = self.get_one_msg()
+        if msg.src != startup_msg.parent_counter:
+            raise RuntimeError("Expected message from parent")
         self.complete()
 
 
@@ -142,7 +174,7 @@ if __name__ == "__main__":
     processes = [FirstCounter]
     start_time = time.time()
     DistributedSystem.define_faults(
-        msg_drop_prop=0.0, max_process_kill_count=0, process_kill_wait_time=5
+        msg_drop_prop=0.0, max_process_kill_count=1, process_kill_wait_time=5
     )
     DistributedSystem.process_input(system_input, processes)
     output = DistributedSystem.wait_for_completion()

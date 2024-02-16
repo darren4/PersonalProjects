@@ -171,7 +171,6 @@ class DistributedSystem:
             with cls._processes_lock:
                 cls._processes[target_id].receive_msg(msg)
         except KeyError:
-            print(f"[WARNING] Sending message to dead process {target_id}")
             pass
 
     @classmethod
