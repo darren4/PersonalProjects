@@ -22,6 +22,7 @@ class ProcessFramework(ABC):
             - get_id -> get process id
             - send_msg -> send msg to process by id
             - new_process -> start new process
+            - alive_status -> process still alive
 
         Mandatory implement:
             - read_msg -> process message
@@ -67,7 +68,7 @@ class ProcessFramework(ABC):
         Thread(target=self.read_msg, args=[msg]).start()
 
     def send_msg(self, target_id: int, msg: str = None):
-        if not self._get_alive_status():
+        if not self.get_alive_status():
             sys.exit()
         if msg and not isinstance(msg, str):
             raise ValueError("Message must be string")
@@ -77,12 +78,12 @@ class ProcessFramework(ABC):
         DistributedSystem.msg_to_process(target_id, msg)
 
     def new_process(self, process_id: int, process_def: type, msg: str = None):
-        if not self._get_alive_status():
+        if not self.get_alive_status():
             sys.exit()
         process_instance = DistributedSystem.initialize_process(process_id, process_def)
         Thread(target=process_instance.start, args=[msg]).start()
 
-    def _get_alive_status(self):
+    def get_alive_status(self):
         with self._alive_status_lock:
             return self._alive_status
 
