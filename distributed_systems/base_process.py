@@ -97,7 +97,6 @@ class Process(ProcessFramework):
                 self.focused_inbox.put(msg)
             else:
                 raise ValueError(f"Invalid message type: {msg.type}")
-        print(f"[DEBUG] process {self.get_id()} stopped sending messages")
 
     def _keep_process_alive_continuously(
         self,
@@ -118,7 +117,6 @@ class Process(ProcessFramework):
                     break
                 print(f"[STATUS] Process {self.get_id()} reviving process {process_id}")
                 self.new_process(process_id, process_def, startup_msg)
-        print(f"[DEBUG] process {self.get_id()} stopped watching process")
 
     def keep_process_alive(
         self, process_id: int, process_def: type, startup_msg: str = None
@@ -134,7 +132,6 @@ class Process(ProcessFramework):
                 target=process_id, msg=Msg(msg_type=MsgType.HEARTBEAT), verify=False
             )
             time.sleep(wait_time)
-        print(f"[DEBUG] process {self.get_id()} stopped sending heartbeats")
 
     def send_heartbeats_to_process(self, process_id: int):
         Thread(target=self._send_heartbeats_continuously, args=[process_id]).start()
@@ -169,8 +166,6 @@ class Process(ProcessFramework):
                     return
                 else:
                     super().send_msg(target, msg_string)
-            if not self.get_alive_status():
-                print(f"[DEBUG] process {self.get_id()} stopped checking for message")
         else:
             msg_string = msg.to_json()
             super().send_msg(target, msg_string)
