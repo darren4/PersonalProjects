@@ -10,7 +10,6 @@ import time
 
 class MsgType(Enum):
     REGULAR = "regular"
-    HEARTBEAT = "heartbeat"
     ACKNOWLEDGE = "acknowledge"
 
 
@@ -62,9 +61,6 @@ class Process(ProcessFramework):
         self._processed_msgs: set[str] = set()
         self._processed_msgs_lock: Lock = Lock()
 
-        self._heartbeat_events: dict[int, Event] = {}
-        self._heartbeat_events_lock: Lock = Lock()
-
         Thread(target=self._keep_checking_msgs).start()
 
     def read_msg(self, msg: str):
@@ -88,53 +84,11 @@ class Process(ProcessFramework):
                 with self._ack_events_lock:
                     if msg.ack in self._ack_events:
                         self._ack_events[msg.ack].set()
-            elif msg.type == MsgType.HEARTBEAT:
-                with self._heartbeat_events_lock:
-                    if msg.src in self._heartbeat_events:
-                        self._heartbeat_events[msg.src].set()
             elif msg.type == MsgType.REGULAR:
                 self._acknowledge_msg(msg)
                 self.focused_inbox.put(msg)
             else:
                 raise ValueError(f"Invalid message type: {msg.type}")
-
-    def _keep_process_alive_continuously(
-        self,
-        process_id: int,
-        process_def: type,
-        startup_msg: str = None,
-        wait_time: float = 5,
-    ):
-        with self._heartbeat_events_lock:
-            process_event = Event()
-            self._heartbeat_events[process_id] = process_event
-        while self.get_alive_status():
-            got_heartbeat = process_event.wait(wait_time)
-            if got_heartbeat:
-                process_event.clear()
-            else:
-                if not self.get_alive_status():
-                    break
-                print(f"[STATUS] Process {self.get_id()} reviving process {process_id}")
-                self.new_process(process_id, process_def, startup_msg)
-
-    def keep_process_alive(
-        self, process_id: int, process_def: type, startup_msg: str = None
-    ):
-        Thread(
-            target=self._keep_process_alive_continuously,
-            args=[process_id, process_def, startup_msg],
-        ).start()
-
-    def _send_heartbeats_continuously(self, process_id: int, wait_time: float = 1):
-        while self.get_alive_status():
-            self.send_msg(
-                target=process_id, msg=Msg(msg_type=MsgType.HEARTBEAT), verify=False
-            )
-            time.sleep(wait_time)
-
-    def send_heartbeats_to_process(self, process_id: int):
-        Thread(target=self._send_heartbeats_continuously, args=[process_id]).start()
 
     def get_one_msg(self, timeout=None):
         try:
