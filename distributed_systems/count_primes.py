@@ -1,5 +1,5 @@
 from distributed_systems.framework import ProcessFramework, DistributedSystem
-from distributed_systems.base_process import Msg, Process, MsgType
+from distributed_systems.base_process import Msg, Process
 
 import time
 import math
@@ -33,7 +33,7 @@ class StartupMsg:
         self.revival: str = revival
 
     def to_json(self) -> str:
-        return json.dumps(self.__dict__)
+        return json.dumps(vars(self))
 
     @staticmethod
     def from_json(json_str: str):
@@ -52,8 +52,6 @@ class FirstCounter(Process):
         if self.input < BITE_SIZE:
             self.output = count_primes(0, self.input)
         else:
-            super().start_background_processing()
-
             self.send_heartbeats_to_process(math.ceil(self.input / BITE_SIZE) - 1)
 
             next_counter_id = self.get_id() + 1
@@ -99,8 +97,6 @@ class FirstCounter(Process):
 
 class MiddleCounter(Process):
     def start(self, startup_msg_str: str = None):
-        super().start_background_processing()
-
         startup_msg = StartupMsg.from_json(startup_msg_str)
         self.send_heartbeats_to_process(startup_msg.parent_counter)
 
@@ -149,15 +145,13 @@ class MiddleCounter(Process):
 
 class LastCounter(Process):
     def start(self, startup_msg_str: str = None):
-        super().start_background_processing()
-
         startup_msg = StartupMsg.from_json(startup_msg_str)
         self.send_heartbeats_to_process(startup_msg.parent_counter)
 
         count_range_start = startup_msg.process_next
         count_range_end = min(count_range_start + BITE_SIZE, self.input)
 
-        first_counter_startup_msg = StartupMsg(self.get_id(), 0).to_json()
+        first_counter_startup_msg = StartupMsg(self.get_id(), 0, revival="TRUE").to_json()
         self.keep_process_alive(0, FirstCounter, first_counter_startup_msg)
 
         prime_count = count_primes(count_range_start, count_range_end)
