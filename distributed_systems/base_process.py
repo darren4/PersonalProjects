@@ -64,7 +64,10 @@ class Process(ProcessFramework):
         Thread(target=self._keep_checking_msgs).start()
 
     def read_msg(self, msg: str):
-        self.general_inbox.put(Msg.from_json(msg))
+        try:
+            self.general_inbox.put(Msg.from_json(msg))
+        except AttributeError:
+            return
 
     def _acknowledge_msg(self, msg: Msg):
         ack_msg = Msg(self.get_id(), msg_type=MsgType.ACKNOWLEDGE, ack_msg=msg.ack)

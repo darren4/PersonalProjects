@@ -96,7 +96,7 @@ if __name__ == "__main__":
         word_counts[word] += 1
         word_list.append(word)
     
-    DistributedSystem.define_faults()
+    DistributedSystem.define_faults(msg_drop_prop=0.1)
     DistributedSystem.process_input(word_list, [Initializer])
     attempted_word_counts = DistributedSystem.wait_for_completion()
 
