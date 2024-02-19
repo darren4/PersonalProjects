@@ -1,6 +1,6 @@
-from distributed_systems.framework import ProcessFramework, DistributedSystem
+from distributed_systems.framework import ProcessFramework
 
-from threading import Lock, Condition, Thread, Event
+from threading import Lock, Thread, Event
 from queue import Queue
 import queue
 from enum import Enum
@@ -32,7 +32,7 @@ class Msg:
 
     def to_json(self):
         self.type = self.type.value
-        return json.dumps(self.__dict__)
+        return json.dumps(vars(self))
 
     @staticmethod
     def from_json(json_str: str):
@@ -46,10 +46,8 @@ class Msg:
 
 
 class Process(ProcessFramework):
-    def start_background_processing(self):
-        """
-        Call in first line of start in inherited class
-        """
+    def __init__(self, id: int):
+        super().__init__(id)
         self.general_inbox: Queue[Msg] = Queue()
         self.focused_inbox: Queue[Msg] = Queue()
 
@@ -126,6 +124,3 @@ class Process(ProcessFramework):
         else:
             msg_string = msg.to_json()
             super().send_msg(target, msg_string)
-
-    def complete(self):
-        super().shutdown()

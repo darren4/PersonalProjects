@@ -29,7 +29,7 @@ class ProcessFramework(ABC):
             - start -> start process execution
 
         Other:
-            - shutdown -> call when process done
+            - complete -> call when process done
 
     Rules:
         1. Do not apply thread controls (like threading.Lock) to static variables
@@ -87,15 +87,16 @@ class ProcessFramework(ABC):
         with self._alive_status_lock:
             return self._alive_status
 
+    def complete(self):
+        print(f"[STATUS] Process {self.get_id()} complete")
+        DistributedSystem.process_completion(self.get_id())
+
     def shutdown(self, premature=False):
         with self._alive_status_lock:
             self._alive_status = False
         if premature:
             print(f"[STATUS] Process {self.get_id()} experienced hardware failure")
-        else:
-            print(f"[STATUS] Process {self.get_id()} complete")
-        DistributedSystem.remove_process(self.get_id())
-
+        DistributedSystem.process_shutdown(self.get_id())
 
 class DistributedSystem:
     """
@@ -108,7 +109,10 @@ class DistributedSystem:
 
     _processes: Dict[int, ProcessFramework] = {}
     _processes_lock = Lock()
-    _processes_cv = Condition(_processes_lock)
+
+    _running_process_ids: set = set()
+    _running_process_ids_lock = Lock()
+    _running_process_ids_cv = Condition(_running_process_ids_lock)
 
     _msg_drop_prop = 0.1
     _max_process_kill_count = float("inf")
@@ -144,6 +148,8 @@ class DistributedSystem:
 
     @classmethod
     def initialize_process(cls, process_id: int, process_def: type):
+        with cls._running_process_ids_lock:
+            cls._running_process_ids.add(process_id)
         with cls._processes_lock:
             if process_id in cls._processes:
                 print(f"[WARNING] Restarting healthy process {process_id}")
@@ -175,15 +181,27 @@ class DistributedSystem:
             pass
 
     @classmethod
-    def remove_process(cls, id: int):
+    def process_completion(cls, id: int):
+        with cls._running_process_ids_lock:
+            if id in cls._running_process_ids:
+                cls._running_process_ids.remove(id)
+            cls._running_process_ids_cv.notify()
+
+    @classmethod
+    def process_shutdown(cls, id: int):
+        cls.process_completion(id)
         with cls._processes_lock:
             del cls._processes[id]
-            cls._processes_cv.notify()
 
     @classmethod
     def wait_for_completion(cls):
+        with cls._running_process_ids_lock:
+            while len(cls._running_process_ids) > 0:
+                cls._running_process_ids_cv.wait()
+        print("[STATUS] No running processes, initiating shutdown")
         with cls._processes_lock:
-            while len(cls._processes) > 0:
-                cls._processes_cv.wait()
-        print("[STATUS] Distributed system complete")
+            processes: List[ProcessFramework] = list(cls._processes.values())
+        for process in processes:
+            process.shutdown()
+        print("[STATUS] Distributed system shutdown complete")
         return ProcessFramework.output
