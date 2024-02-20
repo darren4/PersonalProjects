@@ -114,8 +114,8 @@ class DistributedSystem:
     _running_process_ids_lock = Lock()
     _running_process_ids_cv = Condition(_running_process_ids_lock)
 
-    _msg_drop_prop = 0.1
-    _max_process_kill_count = float("inf")
+    _msg_drop_prop = 0.0
+    _max_process_kill_count = 0
     _process_kill_wait_time = 5
 
     @classmethod
