@@ -98,6 +98,7 @@ class ProcessFramework(ABC):
             print(f"[STATUS] Process {self.get_id()} experienced hardware failure")
         DistributedSystem.process_shutdown(self.get_id())
 
+
 class DistributedSystem:
     """
     Usage:
