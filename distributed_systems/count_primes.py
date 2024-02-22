@@ -1,8 +1,5 @@
 """
 Goal: Have threads keep each other alive while counting primes
-
-Known Issues: 
-    - At least one thread often does not finish even after processing complete
 """
 
 from distributed_systems.framework import ProcessFramework, DistributedSystem
