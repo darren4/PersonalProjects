@@ -14,8 +14,7 @@ class Initializer(Process):
         self.next_process_id += 1
         return output_process_id
 
-    def start(self, msg: str=None):
-        self.start_background_processing()
+    def start(self, msg: str = None):
         self.next_process_id = 1
 
         input_len: int = len(ProcessFramework.input)
@@ -25,14 +24,15 @@ class Initializer(Process):
 
         reducer_id: int = len(bites) + 1
         for bite in bites:
-            self.new_process(self.get_next_process_id(), Mapper, f"{bite[0]},{bite[1]},{reducer_id}")
+            self.new_process(
+                self.get_next_process_id(), Mapper, f"{bite[0]},{bite[1]},{reducer_id}"
+            )
         self.new_process(reducer_id, Reducer, f"{len(bites)}")
         self.complete()
 
 
 class Mapper(Process):
-    def start(self, msg: str=None):
-        self.start_background_processing()
+    def start(self, msg: str = None):
         msg_list = msg.split(",")
         process_range_start: int = int(msg_list[0])
         process_range_end: int = int(msg_list[1])
@@ -50,9 +50,9 @@ class Mapper(Process):
         self.send_msg(reducer_id, Msg.build_msg(word_counts_json))
         self.complete()
 
+
 class Reducer(Process):
-    def start(self, msg: str=None):
-        self.start_background_processing()
+    def start(self, msg: str = None):
         mapper_count = int(msg)
 
         mapper_results: List[dict] = []
@@ -72,22 +72,11 @@ class Reducer(Process):
         ProcessFramework.output = word_counts
         self.complete()
 
-if __name__ == "__main__":
-    vocab = {
-        0: "cat", 
-        1: "dog", 
-        2: "bird", 
-        3: "mouse",
-        4: "horse" 
-    }
 
-    word_counts = {
-        "cat": 0,
-        "dog": 0,
-        "bird": 0,
-        "mouse": 0,
-        "horse": 0
-    }
+if __name__ == "__main__":
+    vocab = {0: "cat", 1: "dog", 2: "bird", 3: "mouse", 4: "horse"}
+
+    word_counts = {"cat": 0, "dog": 0, "bird": 0, "mouse": 0, "horse": 0}
 
     word_list = []
 
@@ -95,7 +84,7 @@ if __name__ == "__main__":
         word = vocab[random.randint(0, 4)]
         word_counts[word] += 1
         word_list.append(word)
-    
+
     DistributedSystem.define_faults(msg_drop_prop=0.1)
     DistributedSystem.process_input(word_list, [Initializer])
     attempted_word_counts = DistributedSystem.wait_for_completion()
