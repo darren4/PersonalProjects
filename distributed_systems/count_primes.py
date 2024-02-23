@@ -75,10 +75,11 @@ class Counter(Process):
         else:
             # All counters but last
             self.get_heartbeats_from = self.get_id() + 1
-            regular_startup_msg = StartupMsg(self.get_id(), self.process_end)
-            self.new_process(
-                self.get_heartbeats_from, Counter, regular_startup_msg.to_json()
-            )
+            if not self.revival:
+                regular_startup_msg = StartupMsg(self.get_id(), self.process_end)
+                self.new_process(
+                    self.get_heartbeats_from, Counter, regular_startup_msg.to_json()
+                )
             revival_startup_msg = StartupMsg(self.get_id(), self.process_end, "TRUE")
         self.keep_process_alive(
             self.get_heartbeats_from, Counter, revival_startup_msg.to_json()
@@ -144,7 +145,7 @@ if __name__ == "__main__":
     processes = [FirstCounter]
     start_time = time.time()
     DistributedSystem.define_faults(
-        msg_drop_prop=0.0, max_process_kill_count=0, process_kill_wait_time=5
+        msg_drop_prop=0.0, max_process_kill_count=1, process_kill_wait_time=5
     )
     DistributedSystem.process_input(system_input, processes)
     output = DistributedSystem.wait_for_completion()
