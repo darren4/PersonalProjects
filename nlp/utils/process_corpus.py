@@ -1,4 +1,4 @@
-from nlp.utils.cleaning import sentence_to_list
+from utils.cleaning import sentence_to_list
 from nlp.utils.list_normalization import adjust_list_len
 
 import numpy as np

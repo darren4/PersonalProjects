@@ -1,6 +1,6 @@
-from nlp.binary_strategies.strat_base import Strategy
+from nlp.basic_binary_strategies.strat_base import Strategy
 import numpy as np
-from nlp.utils.cleaning import sentence_to_list
+from utils.cleaning import sentence_to_list
 from nlp.utils.create_nn_embedding import get_basic_word_embeddings
 from sklearn.linear_model import LogisticRegression
 

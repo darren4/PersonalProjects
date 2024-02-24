@@ -1,7 +1,7 @@
 import re
 
 
-def sentence_to_list(sentence):
+def sentence_to_list(sentence: str):
     return (
         re.sub(r"\W+", " ", sentence.encode("ascii", "ignore").decode()).upper().split()
     )
