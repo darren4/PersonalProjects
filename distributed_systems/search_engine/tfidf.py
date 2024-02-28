@@ -5,7 +5,6 @@ from utils.cleaning import sentence_to_list
 from typing import List
 import json
 import os
-from functools import reduce
 
 
 class Initializer(Process):
@@ -20,25 +19,32 @@ class Initializer(Process):
         file_count: int = len(ProcessFramework.input)
         reducer_id: int = file_count + 1
 
-        next_doc_id = 0
+        next_doc_id: int = 0
         for file_path in ProcessFramework.input:
             with open(file_path, "r") as fh:
                 docs_list = fh.readlines()
             docs_list_json = json.dumps(docs_list)
+            mapper_msg = {
+                "NEXT_DOC_ID": next_doc_id,
+                "DOCS_LIST": docs_list_json,
+                "REDUCER_ID": reducer_id,
+            }
             self.new_process(
-                self.get_next_process_id(), TFMapper, f"{next_doc_id},{docs_list_json},{reducer_id}"
+                self.get_next_process_id(),
+                Mapper,
+                json.dumps(mapper_msg),
             )
             next_doc_id += len(docs_list)
-        self.new_process(reducer_id, TFReducer, f"{file_count}")
+        self.new_process(reducer_id, Reducer, f"{file_count}")
         self.complete()
 
 
-class TFMapper(Process):
+class Mapper(Process):
     def start(self, msg: str = None):
-        msg_list = msg.split(",")
-        doc_id: int = int(msg_list[0])
-        docs_list_json: str = str(msg_list[1])
-        reducer_id: int = int(msg_list[2])
+        msg_dict = json.loads(msg)
+        doc_id = msg_dict["NEXT_DOC_ID"]
+        docs_list_json = msg_dict["DOCS_LIST"]
+        reducer_id = msg_dict["REDUCER_ID"]
 
         docs_list = json.loads(docs_list_json)
         term_doc_freq = {}
@@ -47,14 +53,12 @@ class TFMapper(Process):
             doc_words_list = sentence_to_list(doc)
             for word in doc_words_list:
                 if word in term_doc_freq:
-                    if doc_id in term_doc_freq[doc_id]:
+                    if doc_id in term_doc_freq[word]:
                         term_doc_freq[word][doc_id] += 1
                     else:
                         term_doc_freq[word][doc_id] = 1
                 else:
-                    term_doc_freq[word] = {
-                        doc_id: 1
-                    }
+                    term_doc_freq[word] = {doc_id: 1}
             doc_id += 1
 
         word_counts_json = json.dumps(term_doc_freq)
@@ -62,34 +66,48 @@ class TFMapper(Process):
         self.complete()
 
 
-class TFReducer(Process):
+class Reducer(Process):
+    @staticmethod
+    def convert_keys_to_int(d: dict):
+        int_keys_d = {}
+        for key in d:
+            int_keys_d[int(key)] = d[key]
+        return int_keys_d
+
     def start(self, msg: str = None):
         mapper_count = int(msg)
 
-        mapper_results: List[dict] = []
+        term_doc_freqs: List[dict] = []
         for _ in range(mapper_count):
             mapper_msg = self.get_one_msg()
             mapper_result_dict = json.loads(mapper_msg.content)
-            mapper_results.append(mapper_result_dict)
+            term_doc_freqs.append(mapper_result_dict)
 
-        word_counts = {}
-        for mapper_result in mapper_results:
-            for word, count in mapper_result.items():
-                if word in word_counts:
-                    word_counts[word] += count
+        combined_term_doc_freq = {}
+        for term_doc_freq in term_doc_freqs:
+            for word, freq_in_docs in term_doc_freq.items():
+                freq_in_docs: dict = self.convert_keys_to_int(freq_in_docs)
+                if word in combined_term_doc_freq:
+                    for doc, freq in freq_in_docs.items():
+                        if doc in combined_term_doc_freq[word]:
+                            combined_term_doc_freq[word][doc] += freq
+                        else:
+                            combined_term_doc_freq[word][doc] = freq
                 else:
-                    word_counts[word] = count
+                    combined_term_doc_freq[word] = freq_in_docs
 
-        ProcessFramework.output = word_counts
+        ProcessFramework.output = combined_term_doc_freq
         self.complete()
 
 
 if __name__ == "__main__":
     term_freq = {}
 
-    word_file_paths = [f"{os.getenv('PYTHONPATH')}/distributed_systems/search_engine/raw_data/sentences0.txt",
-                       f"{os.getenv('PYTHONPATH')}/distributed_systems/search_engine/raw_data/sentences1.txt",
-                       f"{os.getenv('PYTHONPATH')}/distributed_systems/search_engine/raw_data/sentences2.txt"]
+    word_file_paths = [
+        f"{os.getenv('PYTHONPATH')}/distributed_systems/search_engine/raw_data/sentences0.txt",
+        f"{os.getenv('PYTHONPATH')}/distributed_systems/search_engine/raw_data/sentences1.txt",
+        f"{os.getenv('PYTHONPATH')}/distributed_systems/search_engine/raw_data/sentences2.txt",
+    ]
 
     sentence_idx = 0
     for word_file_path in word_file_paths:
@@ -103,9 +121,7 @@ if __name__ == "__main__":
                         else:
                             term_freq[word][sentence_idx] = 1
                     else:
-                        term_freq[word] = {
-                            sentence_idx: 1
-                        }
+                        term_freq[word] = {sentence_idx: 1}
                 sentence_idx += 1
 
     DistributedSystem.define_faults(msg_drop_prop=0.1)
@@ -116,5 +132,8 @@ if __name__ == "__main__":
         print("SUCCESS")
     else:
         print("FAILURE")
-        print(f"Correct: {term_freq}")
-        print(f"Got: {attempted_term_freq}")
+        for word in attempted_term_freq.keys():
+            if term_freq[word] != attempted_term_freq[word]:
+                print(f"Expected:\n{term_freq[word]}")
+                print(f"Got:\n{attempted_term_freq[word]}")
+                break
