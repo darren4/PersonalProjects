@@ -18,26 +18,6 @@ TEMP_DIR = f"{PROJECT_ROOT}/nlp/glove/temp"
 GLOVE_BUILD_DIR = f"{PROJECT_ROOT}/nlp/glove/build"
 
 
-def _get_json_list_from_file(path: str) -> List:
-    with open(f"{PROJECT_ROOT}/{path}", "r") as fh:
-        json_list = fh.readlines()
-    return json_list
-
-
-def convert_list_elements_to_json_str(json_list: List) -> List[AnyStr]:
-    for i in range(len(json_list)):
-        json_list[i] = json.dumps(json_list[i], separators=(", ", ": "))
-    return json_list
-
-
-def train_on_jsons(jsons_path: str, vectors_path: str):
-    json_list: List = _get_json_list_from_file(jsons_path)
-    json_str_list = convert_list_elements_to_json_str(json_list)
-
-
-# ---
-
-
 def _write_docs_to_file(docs) -> str:
     corpus_path = f"{TEMP_DIR}/corpus.txt"
     with open(corpus_path, "w") as fh:
@@ -200,6 +180,19 @@ if __name__ == "__main__":
             },
         },
     ]
+
+    def convert_list_elements_to_json_str(json_list: List) -> List[AnyStr]:
+        for i in range(len(json_list)):
+            json_list[i] = json.dumps(json_list[i], separators=(", ", ": "))
+            json_list[i] = (
+                json_list[i]
+                .replace('"', "")
+                .replace("{", "")
+                .replace("}", "")
+                .replace(",", "")
+                .replace(":", "")
+            )
+        return json_list
 
     corpus_list_str = convert_list_elements_to_json_str(corpus_list)
     vector_dict = train(corpus_list_str)
