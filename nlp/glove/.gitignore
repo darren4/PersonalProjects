@@ -45,3 +45,5 @@ build/*
 /vectors.bin
 /vectors.txt
 /vocab.txt
+
+temp/*
