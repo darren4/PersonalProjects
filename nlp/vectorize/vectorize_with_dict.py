@@ -1,5 +1,5 @@
-from utils.cleaning import sentence_to_list
-from nlp.utils.list_normalization import adjust_list_len
+from utils.string_cleaning import sentence_to_list
+from nlp.vectorize.list_normalization import adjust_list_len
 from nlp.vectorize.base_vectorize import BaseVectorize
 
 import numpy as np

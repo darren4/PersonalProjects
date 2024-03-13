@@ -1,6 +1,6 @@
 from distributed_systems.base_process import Process, Msg
 from distributed_systems.framework import DistributedSystem, ProcessFramework
-from utils.cleaning import sentence_to_list
+from utils.string_cleaning import sentence_to_list
 
 from typing import List
 import json
