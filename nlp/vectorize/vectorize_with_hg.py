@@ -6,8 +6,9 @@ import numpy as np
 
 
 class VectorizeWithHG(BaseVectorize):
-    def __init__(self, model_name="all-MiniLM-L6-v2"):
-        self._model = SentenceTransformer(model_name)
+    def __init__(self, model_name="all-MiniLM-L6-v2", convert_to_tensor=True):
+        self._model: SentenceTransformer = SentenceTransformer(model_name)
+        self._convert_to_tensor = convert_to_tensor
 
     def vectorize(self, strings: List[str]) -> List[np.array]:
-        return self._model.encode(strings, convert_to_numpy=True)
+        return self._model.encode(strings, convert_to_tensor=self._convert_to_tensor)
