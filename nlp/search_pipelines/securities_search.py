@@ -3,7 +3,7 @@ from nlp.glove.read_vectors import get_vector_dict
 from nlp.vectorize.vectorize_with_dict import VectorizeWithDict
 from nlp.vectorize.vectorize_with_hg import VectorizeWithHG
 from nlp.vector_search.linear_search import LinearVectorSearch
-from nlp.vector_search.perpendicular_search import PerpendicularSearch
+from nlp.vector_search.perpendicular_search import PerpendicularVectorSearch
 from utils.logger import Logger
 
 import pandas as pd

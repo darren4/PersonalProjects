@@ -1,6 +1,7 @@
 from nlp.vector_search import BaseVectorSearch
 
 from typing import Final, Tuple, List
+import torch
 import numpy as np
 
 
@@ -10,10 +11,10 @@ SEARCH_DISTANCE: Final[int] = 10
 COVERED_DIM_CUTOFF_PROP: Final[float] = 0.7
 
 
-class PerpendicularSearch(BaseVectorSearch):
+class PerpendicularVectorSearch(BaseVectorSearch):
     def __init__(
         self,
-        corpus_vectors: List[np.array],
+        corpus_vectors: List[torch.tensor],
         coverage_cutoff=COVERED_DIM_CUTOFF_PROP,
     ):
         self._coverage_cutoff = coverage_cutoff
@@ -56,10 +57,10 @@ class PerpendicularSearch(BaseVectorSearch):
                 return False
 
     def search(
-        self, vector: np.array, approx_max_result_count=DEFAULT_MAX_RESULT_COUNT
+        self, vector: torch.tensor, approx_max_result_count=DEFAULT_MAX_RESULT_COUNT
     ) -> List[int]:
         assert vector.shape[0] == self._vector_len
-        vector_copy = np.copy(vector)
+        vector_copy = torch.clone(vector)
         for dim in range(self._vector_len):
             vector_copy[dim] = self._normalize_vector_value(vector_copy[dim])
 

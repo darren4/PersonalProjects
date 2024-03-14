@@ -1,11 +1,11 @@
-from nlp.vector_search.perpendicular_search import PerpendicularSearch
+from nlp.vector_search.perpendicular_search import PerpendicularVectorSearch
 
 import numpy as np
 
 
 def test_perpendicular_search():
     embeddings = [np.array([-0.18, 0.249]), np.array([0.9999, 1.0])]
-    search = PerpendicularSearch(embeddings)
+    search = PerpendicularVectorSearch(embeddings)
 
     result = search.search(np.array([-0.18, 0.249]))
     assert len(result) == 1
