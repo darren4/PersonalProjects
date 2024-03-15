@@ -1,9 +1,8 @@
-import os
 
 
 class Logger:
     def __init__(self, path, print_msg=True):
-        self.fh = open(f"{os.environ['PYTHONPATH']}/{path}", "w")
+        self.fh = open(path, "w")
         self.print_msg = print_msg
 
     def __del__(self):

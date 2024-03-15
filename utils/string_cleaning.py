@@ -1,9 +1,15 @@
 import re
 
 
+def clean_str(string: str):
+    if type(string) != str:
+        return ""
+    return re.sub(r"\W+", " ", string.encode("ascii", "ignore").decode())
+
+
 def sentence_to_list(sentence: str):
     return (
-        re.sub(r"\W+", " ", sentence.encode("ascii", "ignore").decode()).upper().split()
+        clean_str(sentence).upper().split()
     )
 
 

@@ -8,7 +8,7 @@ MEMORY_LIMIT = "4.0"
 VOCAB_MIN_COUNT = "0"
 VECTOR_SIZE = "10"
 MAX_ITER = "15"
-WINDOW_SIZE = "1"
+WINDOW_SIZE = "5"
 BINARY = "0"
 NUM_THREADS = "4"
 X_MAX = "10"
@@ -66,7 +66,7 @@ def _write_vectors_to_file(vocab_count_path: str, coocurr_shuffle_path: str):
     return vectors_path + ".txt"
 
 
-def _read_vectors_from_path(vectors_path: str):
+def read_vectors_from_path(vectors_path: str) -> Dict[AnyStr, List]:
     with open(vectors_path, "r") as fh:
         words_to_vectors = fh.readlines()
 
@@ -85,7 +85,7 @@ def _read_vectors_from_path(vectors_path: str):
     return word_to_vector_dict
 
 
-def train(docs: List[AnyStr]) -> Dict[AnyStr, List]:
+def train_glove_vectors(docs: List[AnyStr]) -> Dict[AnyStr, List]:
     subprocess.run(["make", "clean", "-C", f"{PROJECT_ROOT}/nlp/glove"])
     subprocess.run(["make", "-C", f"{PROJECT_ROOT}/nlp/glove"])
     if not os.path.isdir(TEMP_DIR):
@@ -95,7 +95,7 @@ def train(docs: List[AnyStr]) -> Dict[AnyStr, List]:
     coocurrence_path: str = _write_coocurrence_to_file(corpus_path, vocab_count_path)
     coocurr_shuffle_path: str = _write_coocurr_shuffle_to_file(coocurrence_path)
     vectors_path: str = _write_vectors_to_file(vocab_count_path, coocurr_shuffle_path)
-    return _read_vectors_from_path(vectors_path)
+    return read_vectors_from_path(vectors_path)
 
 
 if __name__ == "__main__":
@@ -195,5 +195,5 @@ if __name__ == "__main__":
         return json_list
 
     corpus_list_str = convert_list_elements_to_json_str(corpus_list)
-    vector_dict = train(corpus_list_str)
+    vector_dict = train_glove_vectors(corpus_list_str)
     print(json.dumps(vector_dict, indent=2))
