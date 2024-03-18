@@ -1,6 +1,6 @@
 from nlp.vector_search import BaseVectorSearch
 
-from torch import tensor
+import numpy as np
 from torch.nn import CosineSimilarity
 from typing import List
 
@@ -8,12 +8,12 @@ from typing import List
 class LinearVectorSearch(BaseVectorSearch):
     def __init__(
         self,
-        corpus_vectors: List[tensor],
+        corpus_vectors: List[np.array],
     ):
         self._corpus_vectors = corpus_vectors
         self._cos = CosineSimilarity(dim=0)
 
-    def search(self, vector: tensor, approx_max_result_count=5):
+    def search(self, vector: np.array, approx_max_result_count=5):
         results = []
         for corpus_idx in range(len(self._corpus_vectors)):
             corpus_vector = self._corpus_vectors[corpus_idx]
