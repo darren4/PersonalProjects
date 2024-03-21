@@ -13,7 +13,6 @@ import time
 import json
 import pandas as pd
 from typing import Final, Dict, List
-import torch
 
 BASE_PATH: Final[str] = f"{os.getenv('PYTHONPATH')}/nlp/search_pipelines/product_search"
 
@@ -37,7 +36,6 @@ start_time = time.time()
 vector_dict: Dict[str, List] = read_vectors_from_path(f"{BASE_PATH}/vectors.txt")
 vectorizer: BaseVectorize = VectorizeWithDict(vector_dict, 10)
 companies_vectors = vectorizer.vectorize(json_strs)
-companies_vectors = [torch.from_numpy(vector) for vector in companies_vectors]
 logger.log(f"Vectorizing {len(companies_vectors)} strings took {time.time() - start_time} seconds")
 
 
@@ -55,7 +53,6 @@ query_dict = {
 start_time = time.time()
 query_str = json.dumps(query_dict)
 query_vector = vectorizer.vectorize([query_str])[0]
-query_vector = torch.from_numpy(query_vector)
 result_ids = search.search(query_vector)
 logger.log(f"Query took {time.time() - start_time} seconds")
 
