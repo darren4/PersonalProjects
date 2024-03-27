@@ -1,6 +1,6 @@
 # %%
 from nlp.vectorize.base_vectorize import BaseVectorize
-from nlp.vectorize.vectorize_with_hg import VectorizeWithHG
+from nlp.vectorize.vectorize_with_huggingface_transformer import VectorizeWithHG
 from nlp.vector_search.linear_search import LinearVectorSearch
 from nlp.vector_search.perpendicular_search import PerpendicularVectorSearch
 from utils.logger import Logger
