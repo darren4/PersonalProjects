@@ -23,7 +23,9 @@ companies_jsons = [json.dumps(company_dict) for company_dict in companies_dicts]
 vectorizer: BaseVectorize = VectorizeWithHG("sentence-t5-base", convert_to_tensor=True)
 start_time = time.time()
 companies_vectors = vectorizer.vectorize(companies_jsons)
-logger.log(f"Vectorizing {len(companies_vectors)} strings took {time.time() - start_time} seconds")
+logger.log(
+    f"Vectorizing {len(companies_vectors)} strings took {time.time() - start_time} seconds"
+)
 
 
 # %%
@@ -44,7 +46,7 @@ logger.log(f"Storing vectors took {time.time() - start_time} seconds")
 query_dict = {
     "name": "global logistics solutions corp",
     "origin": "Dallas, USA",
-    "size": "Large"
+    "size": "Large",
 }
 start_time = time.time()
 query_str = json.dumps(query_dict)

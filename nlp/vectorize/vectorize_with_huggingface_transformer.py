@@ -10,5 +10,7 @@ class VectorizeWithHG(BaseVectorize):
     def __init__(self, model_name="all-MiniLM-L6-v2"):
         self._model: SentenceTransformer = SentenceTransformer(model_name)
 
-    def vectorize(self, strings: List[str], convert_to_tensor=False) -> List[Union[np.array, torch.Tensor]]:
+    def vectorize(
+        self, strings: List[str], convert_to_tensor=False
+    ) -> List[Union[np.array, torch.Tensor]]:
         return self._model.encode(strings, convert_to_tensor=convert_to_tensor)
