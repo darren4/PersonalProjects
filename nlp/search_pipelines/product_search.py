@@ -44,7 +44,7 @@ start_time = time.time()
 EMBED_LEN = 50
 pretrained_vectors_path = f"{PYTHON_PATH}/nlp/vectorize/lib/build_glove_embeddings/glove/embeddings/glove.6B.50d.txt"
 pretrained_vectors: dict = GloVeProcessor(vector_size=EMBED_LEN).read_vectors_from_path(pretrained_vectors_path)
-vectorizer: BaseVectorize = VectorizeWithGloVe(product_description_words, embed_len=EMBED_LEN, pretrained_vectors=pretrained_vectors)
+vectorizer: BaseVectorize = VectorizeWithGloVe(product_description_words, embed_len=EMBED_LEN)
 print(f"Training embeddings took {time.time() - start_time} seconds")
 
 # %%

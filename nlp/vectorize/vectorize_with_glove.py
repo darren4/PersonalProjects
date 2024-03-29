@@ -6,6 +6,7 @@ from nlp.vectorize.lib.build_glove_embeddings.fine_tune_embeddings import (
     fine_tune_embeddings,
 )
 from nlp.vectorize.lib.build_glove_embeddings.glove.GloVeProcessor import GloVeProcessor
+from utils.string_cleaning import clean_str
 
 import numpy as np
 from typing import List, Dict, Sequence
@@ -21,7 +22,10 @@ class VectorizeWithGloVe(BaseVectorize):
     ):
         self._embed_len = embed_len
         self._window_len = window_len
-        processed_corpus = [string.lower() for string in corpus]
+        self._max_len = 0
+        self._unknown_token_count = 0
+        self._total_tokens = 0
+        processed_corpus = [self._preprocess_string(string) for string in corpus]
         if pretrained_vectors:
             processed_corpus_lists = [string.split() for string in processed_corpus]
             self._word_vector_dict = fine_tune_embeddings(
@@ -32,6 +36,11 @@ class VectorizeWithGloVe(BaseVectorize):
                 self._embed_len, self._window_len
             ).train_glove_vectors(processed_corpus)
 
+    @staticmethod
+    def _preprocess_string(string) -> str:
+        return clean_str(string).lower()
+
+    @staticmethod
     def _normalize_adjust_lens(
         matrix: np.array, target_len: int, embed_len: int
     ) -> np.array:
@@ -43,7 +52,7 @@ class VectorizeWithGloVe(BaseVectorize):
         return matrix_adjusted
 
     def _string_to_vector(self, string: str) -> np.array:
-        words = string.lower().split()
+        words = self._preprocess_string(string).split()
         self._max_len = max(len(words), self._max_len)
         vectors = []
         self._total_tokens += len(words)

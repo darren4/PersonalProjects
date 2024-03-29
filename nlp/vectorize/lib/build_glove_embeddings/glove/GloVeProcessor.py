@@ -12,8 +12,8 @@ NUM_THREADS = "4"
 X_MAX = "10"
 
 PROJECT_ROOT = os.getenv("PYTHONPATH")
-TEMP_DIR = f"{PROJECT_ROOT}/nlp/glove/temp"
-GLOVE_BUILD_DIR = f"{PROJECT_ROOT}/nlp/glove/build"
+TEMP_DIR = f"{PROJECT_ROOT}/nlp/vectorize/lib/build_glove_embeddings/glove/temp"
+GLOVE_BUILD_DIR = f"{PROJECT_ROOT}/nlp/vectorize/lib/build_glove_embeddings/glove/build"
 
 
 class GloVeProcessor:
