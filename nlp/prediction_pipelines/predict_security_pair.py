@@ -2,7 +2,7 @@
 import pandas as pd
 import numpy as np
 from nlp.glove.read_vectors import get_vector_dict
-from nlp.vectorize.vectorize_with_dict import VectorizeWithDict
+from nlp.vectorize.vectorize_with_glove import VectorizeWithGloVe
 import time
 import os
 
@@ -18,7 +18,7 @@ start_time = time.time()
 securities_data = pd.read_csv(
     f"{os.getenv('PYTHONPATH')}/nlp/data/security_descriptions.csv"
 )
-vectorizer = VectorizeWithDict(word_vector_dict, EMBED_LEN)
+vectorizer = VectorizeWithGloVe(word_vector_dict, EMBED_LEN)
 securities_data["matrix_x"] = pd.Series(
     vectorizer.vectorize(list(securities_data["description_x"]))
 )

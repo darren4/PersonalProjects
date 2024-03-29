@@ -1,11 +1,13 @@
 # %%
 from nlp.vectorize.base_vectorize import BaseVectorize
-from nlp.vectorize.vectorize_with_embeddings.create_embeddings.glove.train import read_vectors_from_path
-from nlp.vectorize.vectorize_with_embeddings.create_embeddings.fine_tune_embeddings import fine_tune_embeddings
-from nlp.vectorize.vectorize_with_embeddings.vectorize_with_embeddings.vectorize_with_dict import VectorizeWithDict
+from nlp.vectorize.lib.build_glove_embeddings.glove.GloVeProcessor import (
+    GloVeProcessor
+)
+from nlp.vectorize.vectorize_with_glove import (
+    VectorizeWithGloVe
+)
 from nlp.vector_search.linear_search import LinearVectorSearch
 from utils.logger import Logger
-from utils.string_cleaning import sentence_to_list
 
 import os
 import time
@@ -25,7 +27,7 @@ def describe_product(record: dict):
 
 
 def process_product(record: dict):
-    return sentence_to_list(describe_product(record))
+    return describe_product(record)
 
 
 # %%
@@ -40,14 +42,14 @@ logger.log(f"Preprocessing took {time.time() - start_time} seconds")
 # %%
 start_time = time.time()
 EMBED_LEN = 50
-general_embeddings = read_vectors_from_path(f"{PYTHON_PATH}/nlp/vectorize/vectorize_with_embeddings/create_embeddings/glove/embeddings/glove.6B.50d.txt")
-targeted_embeddings = fine_tune_embeddings(general_embeddings, product_description_words, EMBED_LEN)
+pretrained_vectors_path = f"{PYTHON_PATH}/nlp/vectorize/lib/build_glove_embeddings/glove/embeddings/glove.6B.50d.txt"
+pretrained_vectors: dict = GloVeProcessor(vector_size=EMBED_LEN).read_vectors_from_path(pretrained_vectors_path)
+vectorizer: BaseVectorize = VectorizeWithGloVe(product_description_words, embed_len=EMBED_LEN, pretrained_vectors=pretrained_vectors)
 print(f"Training embeddings took {time.time() - start_time} seconds")
 
 # %%
 start_time = time.time()
-vectorizer: BaseVectorize = VectorizeWithDict(targeted_embeddings, EMBED_LEN)
-companies_vectors = vectorizer.vectorize(json_strs)
+companies_vectors = vectorizer.vectorize(product_description_words)
 logger.log(
     f"Vectorizing {len(companies_vectors)} strings took {time.time() - start_time} seconds"
 )
@@ -67,7 +69,7 @@ query_vector = vectorizer.vectorize([query_str])[0]
 result_ids = search.search(query_vector)
 logger.log(f"Query took {time.time() - start_time} seconds")
 
-result_jsons = [json_strs[result_id] for result_id in result_ids]
+result_jsons = [json_dicts[result_id] for result_id in result_ids]
 logger.log(f"Results:\n{result_jsons}")
 
 # %%

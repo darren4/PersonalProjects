@@ -4,12 +4,12 @@ import queue
 
 class GraphInterface:
     class Connection:
-        def __init__(self, from_node_id: int, to_node_id: int, distance: int=1):
+        def __init__(self, from_node_id: int, to_node_id: int, distance: int = 1):
             self.from_node_id: int = from_node_id
             self.to_node_id: int = to_node_id
             self.distance: int = distance
 
-    def __init__(self, connections: List[Connection]=list()):
+    def __init__(self, connections: List[Connection] = list()):
         if not connections:
             raise ValueError("connections list cannot be empty")
         self._viewable_nodes = {connections[0].from_node_id}
@@ -24,7 +24,9 @@ class GraphInterface:
         if node_id not in self._viewable_nodes:
             raise ValueError(f"Node id {node_id} never returned as destination")
         try:
-            connections: List[GraphInterface.Connection] = self._node_connections[node_id]
+            connections: List[GraphInterface.Connection] = self._node_connections[
+                node_id
+            ]
         except KeyError:
             connections = []
         for connection in connections:
@@ -78,9 +80,7 @@ if __name__ == "__main__":
     else:
         end_node = node_left
 
-    steps_back = {
-        start_node: start_node
-                        }
+    steps_back = {start_node: start_node}
     first_step_back = None
     while not search.empty():
         current_node = search.get()

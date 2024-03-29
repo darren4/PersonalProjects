@@ -1,7 +1,7 @@
 # %%
 import pandas as pd
 from nlp.glove.read_vectors import get_vector_dict
-from nlp.vectorize.vectorize_with_dict import VectorizeWithDict
+from nlp.vectorize.vectorize_with_glove import VectorizeWithGloVe
 from sklearn.model_selection import train_test_split
 import os
 
@@ -13,7 +13,7 @@ word_vector_dict, EMBED_LEN = get_vector_dict(
 # %%
 ig_data = pd.read_csv(f"{os.getenv('PYTHONPATH')}/nlp/data/instagram_sample.csv")
 
-vectorizer = VectorizeWithDict(word_vector_dict, EMBED_LEN)
+vectorizer = VectorizeWithGloVe(word_vector_dict, EMBED_LEN)
 ig_data["matrix"] = pd.Series(vectorizer.vectorize(list(ig_data["review_description"])))
 
 

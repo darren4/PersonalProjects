@@ -18,7 +18,7 @@ def get_word_list_and_cooccurrences(corpus: List[List]) -> Tuple[List[str], np.a
         for i in range(len(word_set)):
             for k in range(len(word_set)):
                 if i != k:
-                    cooccurrences[word_ids[i]][word_ids[k]] += 1
+                    cooccurrences[word_ids[word_set[i]]][word_ids[word_set[k]]] += 1
     return word_list, cooccurrences
 
 

@@ -1,5 +1,3 @@
-
-
 class Logger:
     def __init__(self, path, print_msg=True):
         self.fh = open(path, "w")

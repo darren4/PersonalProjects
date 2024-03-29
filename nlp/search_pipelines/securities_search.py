@@ -1,6 +1,6 @@
 # %%
 from nlp.glove.read_vectors import get_vector_dict
-from nlp.vectorize.vectorize_with_embeddings.vectorize_with_embeddings.vectorize_with_dict import (
+from nlp.vectorize.vectorize_with_embeddings.vectorize_with_dict import (
     VectorizeWithDict,
 )
 from nlp.vectorize.vectorize_with_huggingface_transformer import VectorizeWithHG

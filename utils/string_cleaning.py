@@ -8,9 +8,7 @@ def clean_str(string: str):
 
 
 def sentence_to_list(sentence: str):
-    return (
-        clean_str(sentence).upper().split()
-    )
+    return clean_str(sentence).upper().split()
 
 
 def get_clean_corpus(corpus):
