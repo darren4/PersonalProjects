@@ -7,7 +7,7 @@ import torch
 
 
 class VectorizeWithHG(BaseVectorize):
-    def __init__(self, model_name="all-MiniLM-L6-v2"):
+    def __init__(self, model_name="sentence-t5-base"):
         self._model: SentenceTransformer = SentenceTransformer(model_name)
 
     def vectorize(
