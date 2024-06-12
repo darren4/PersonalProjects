@@ -1,74 +1,102 @@
 from queue import PriorityQueue
 from queue import Empty
+from dataclasses import dataclass
+from enum import Enum
+from typing import Tuple, List, Union
 
-PARTICIPANT_ID = "PARTICIPANT_ID"
-ACTION = "ACTION"
-BUY = "BUY"
-SELL = "SELL"
-PRICE = "PRICE"
-AMOUNT = "AMOUNT"
 
-ORDER = "ORDER"
-MATCH = "MATCH"
+@dataclass
+class Holdings:
+    cash: float
+    security: float
 
-CASH = "CASH"
-SECURITY = "SECURITY"
+
+class Action(Enum):
+    BUY = "BUY"
+    SELL = "SELL"
+
+
+@dataclass
+class Order:
+    participant: int
+    action: Action
+    price: float
+    amount: int
+
+
+class OrderQueue:
+    def __init__(self, max_has_priority: bool):
+        self._order_queue: PriorityQueue[Tuple[int, Order]] = PriorityQueue()
+        if max_has_priority:
+            self._multiplier = -1
+        else:
+            self._multiplier = 1
+
+    def put(self, order: Order) -> None:
+        self._order_queue.put((self._multiplier * order.price, order))
+
+    def get(self, timeout: Union[int, float, None] = None) -> Order:
+        return self._order_queue.get(timeout=timeout)[1]
 
 
 class SingleSecurityExchange:
-    def __init__(self, participants):
-        """
-        participants: dictionary of participant_id (key) to dictionary of cash/security amount (value)
-        """
-        self._buy_order_queue = PriorityQueue()
-        self._sell_order_queue = PriorityQueue()
-        self.tape = []
+    def __init__(self, participants: List[Holdings]):
+        self._buy_order_queue: OrderQueue = OrderQueue(True)
+        self._sell_order_queue: OrderQueue = OrderQueue(False)
+        self.tape: List[Order] = []
 
-        self._participants = participants
+        self._participants: List[Holdings] = participants
 
-    def trade(self, participant_id: int, action: str, price: float, amount: int):
-        order = {
-            PARTICIPANT_ID: participant_id,
-            ACTION: action,
-            PRICE: price,
-            AMOUNT: amount,
-        }
-        if action == BUY:
-            if order[AMOUNT] * order[PRICE] > self._participants[participant_id][CASH]:
+    def trade(self, order: Order):
+        if order.action == Action.BUY:
+            if order.amount * order.price > self._participants[order.participant].cash:
                 raise ValueError("insufficient funds")
-            self._buy_order_queue.put((-price, order))
-        elif action == SELL:
-            if order[AMOUNT] > self._participants[participant_id][SECURITY]:
+            self._buy_order_queue.put(order)
+        elif order.action == Action.SELL:
+            if order.amount > self._participants[order.participant].security:
                 raise ValueError("insufficient security holdings")
-            self._sell_order_queue.put((price, order))
+            self._sell_order_queue.put(order)
         else:
             raise ValueError("action must be BUY or SELL")
-        self.tape.append((ORDER, order))
+        self.tape.append(order)
 
     def try_match_trade(self) -> bool:
-        try:
-            generous_buy_queue_elt = self._buy_order_queue.get()
-            generous_sell_queue_elt = self._sell_order_queue.get()
-            generous_buy = generous_buy_queue_elt[1]
-            generous_sell = generous_sell_queue_elt[1]
-        except Empty:
-            return False
-        if generous_buy[PRICE] < generous_sell[PRICE]:
+        buy_order: Order = self._buy_order_queue.get()
+        sell_order: Order = self._sell_order_queue.get()
+
+        if buy_order.price <= sell_order.price:
+            self._buy_order_queue.put(buy_order)
+            self._sell_order_queue.put(sell_order)
             return False
 
-        if generous_buy[AMOUNT] >= generous_sell[AMOUNT]:
-            generous_buy_queue_elt[1][AMOUNT] = (
-                generous_buy[AMOUNT] - generous_sell[AMOUNT]
+        amount_moved: int = min(sell_order.amount, buy_order.amount)
+        self._participants[buy_order.participant].cash -= amount_moved * buy_order.price
+        self._participants[buy_order.participant].security += amount_moved
+        self._participants[sell_order.participant].cash += (
+            amount_moved * sell_order.price
+        )
+        self._participants[sell_order.participant].security -= amount_moved
+
+        if amount_moved < sell_order.amount:
+            self._sell_order_queue.put(
+                Order(
+                    sell_order.participant,
+                    sell_order.action,
+                    sell_order.price,
+                    sell_order.amount - amount_moved,
+                )
             )
-            self._buy_order_queue.put(generous_buy_queue_elt)
-        else:
-            generous_sell_queue_elt[1][AMOUNT] = (
-                generous_sell[AMOUNT] - generous_buy[AMOUNT]
+        elif amount_moved < buy_order.amount:
+            self._buy_order_queue.put(
+                Order(
+                    buy_order.participant,
+                    buy_order.action,
+                    buy_order.price,
+                    buy_order.amount - amount_moved,
+                )
             )
-            self._sell_order_queue.put(generous_sell_queue_elt)
-        self.tape.append((MATCH, generous_buy, generous_sell))
         return True
 
 
 class BaseParticipant:
-    
+    pass
