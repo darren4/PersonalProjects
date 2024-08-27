@@ -12,11 +12,13 @@ class Prices:
     low: float
     close: float
 
+
 @dataclass
 class TradingWindow:
     time: datetime
     prices: Prices
     volume: int
+
 
 class TradeAction(StrEnum):
     OPEN_LONG = "OPEN_LONG"
@@ -24,16 +26,19 @@ class TradeAction(StrEnum):
     OPEN_SHORT = "OPEN_SHORT"
     CLOSE_SHORT = "CLOSE_SHORT"
 
+
 @dataclass
 class Trade:
     action: TradeAction
     amount: int
+
 
 @dataclass
 class Holdings:
     cash: float
     long_shares: int
     short_shares: int
+
 
 class StrategyInterface(ABC):
     @abstractmethod
