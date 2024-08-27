@@ -1,19 +1,28 @@
 from abc import ABC, abstractmethod
 from typing import List
 from dataclasses import dataclass
-from datetime import date
+from datetime import datetime
 from enum import StrEnum
 
 
 @dataclass
-class TradingDay:
-    day: date
-    price: float
+class Prices:
+    open: float
+    high: float
+    low: float
+    close: float
+
+@dataclass
+class TradingWindow:
+    time: datetime
+    prices: Prices
     volume: int
 
 class TradeAction(StrEnum):
-    BUY = "BUY"
-    SELL = "SELL"
+    OPEN_LONG = "OPEN_LONG"
+    CLOSE_LONG = "CLOSE_LONG"
+    OPEN_SHORT = "OPEN_SHORT"
+    CLOSE_SHORT = "CLOSE_SHORT"
 
 @dataclass
 class Trade:
@@ -23,11 +32,12 @@ class Trade:
 @dataclass
 class Holdings:
     cash: float
-    equity: int
+    long_shares: int
+    short_shares: int
 
 class StrategyInterface(ABC):
     @abstractmethod
-    def add_historical_data(self, days: List[TradingDay]) -> None:
+    def add_historical_data(self, windows: List[TradingWindow]) -> None:
         pass
 
     @abstractmethod
