@@ -13,7 +13,7 @@ class Prices:
     close: float
 
 
-@dataclass
+@dataclass(order=True)
 class TradingWindow:
     time: datetime
     prices: Prices
