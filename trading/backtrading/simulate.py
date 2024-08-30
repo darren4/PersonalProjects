@@ -44,6 +44,8 @@ def get_weekly_data(symbol: str) -> List[TradingWindow]:
 if __name__ == "__main__":
     windows: List[TradingWindow] = get_weekly_data("MSFT")
 
-    from trading.backtrading.strategy_buyhold import StrategyBuyHold
+    from trading.backtrading.strategy_buyhold import StrategyBuyHold 
+    from trading.backtrading.strategy_linear_regression import StrategyLinearRegression
 
     print(TradingSimulator(windows, 1000000.0).backtrade_strategy(StrategyBuyHold()))
+    print(TradingSimulator(windows, 1000000.0).backtrade_strategy(StrategyLinearRegression()))
