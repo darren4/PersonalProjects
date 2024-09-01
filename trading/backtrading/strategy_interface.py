@@ -41,9 +41,6 @@ class Holdings:
 
 
 class StrategyInterface(ABC):
-    """
-    TODO: combine first and third functions
-    """
     @abstractmethod
     def add_historical_data(self, windows: List[TradingWindow]) -> None:
         pass
